@@ -1,0 +1,66 @@
+package com.example.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// Agro-Industrial Precision Color Palette (Forest Green & Clean White / Charcoal Dark)
+val PrimaryGreen = Color(0xFF0D631B)
+val PrimaryContainer = Color(0xFF2E7D32)
+val OnPrimary = Color(0xFFFFFFFF)
+val OnPrimaryContainer = Color(0xFFCBFFC2)
+val PrimaryFixed = Color(0xFFA3F69C)
+val PrimaryFixedDim = Color(0xFF88D982)
+val OnPrimaryFixed = Color(0xFF002204)
+val OnPrimaryFixedVariant = Color(0xFF005312)
+
+val SecondaryGrey = Color(0xFF5D5F5F)
+val OnSecondary = Color(0xFFFFFFFF)
+val SecondaryContainer = Color(0xFFDFE0E0)
+val OnSecondaryContainer = Color(0xFF616363)
+val SecondaryFixed = Color(0xFFE2E2E2)
+val SecondaryFixedDim = Color(0xFFC6C6C7)
+val OnSecondaryFixed = Color(0xFF1A1C1C)
+
+val TertiaryGreen = Color(0xFF1F6223)
+val TertiaryContainer = Color(0xFF3A7B39)
+val OnTertiary = Color(0xFFFFFFFF)
+val OnTertiaryContainer = Color(0xFFC8FFBF)
+val TertiaryFixed = Color(0xFFACF4A4)
+val TertiaryFixedDim = Color(0xFF91D78A)
+val OnTertiaryFixed = Color(0xFF002203)
+val OnTertiaryFixedVariant = Color(0xFF0C5216)
+
+val ErrorRed = Color(0xFFBA1A1A)
+val OnError = Color(0xFFFFFFFF)
+val ErrorContainer = Color(0xFFFFDAD6)
+val OnErrorContainer = Color(0xFF93000A)
+
+val BackgroundLight = Color(0xFFFBF9F9)
+val OnBackgroundLight = Color(0xFF1B1C1C)
+val SurfaceLight = Color(0xFFFBF9F9)
+val OnSurfaceLight = Color(0xFF1B1C1C)
+val SurfaceVariantLight = Color(0xFFE3E2E2)
+val OnSurfaceVariantLight = Color(0xFF40493D)
+val OutlineLight = Color(0xFF707A6C)
+val OutlineVariantLight = Color(0xFFBFCABA)
+
+val SurfaceContainerLowestLight = Color(0xFFFFFFFF)
+val SurfaceContainerLowLight = Color(0xFFF5F3F3)
+val SurfaceContainerLight = Color(0xFFEFEDED)
+val SurfaceContainerHighLight = Color(0xFFE9E8E7)
+val SurfaceContainerHighestLight = Color(0xFFE3E2E2)
+
+// Dark Theme Colors
+val BackgroundDark = Color(0xFF121412)
+val OnBackgroundDark = Color(0xFFE2E3DF)
+val SurfaceDark = Color(0xFF121412)
+val OnSurfaceDark = Color(0xFFE2E3DF)
+val SurfaceVariantDark = Color(0xFF40493D)
+val OnSurfaceVariantDark = Color(0xFFBFCABA)
+val OutlineDark = Color(0xFF8A9385)
+val OutlineVariantDark = Color(0xFF40493D)
+
+val SurfaceContainerLowestDark = Color(0xFF0D0F0D)
+val SurfaceContainerLowDark = Color(0xFF1A1C1A)
+val SurfaceContainerDark = Color(0xFF1E211E)
+val SurfaceContainerHighDark = Color(0xFF292C29)
+val SurfaceContainerHighestDark = Color(0xFF333733)

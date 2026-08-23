@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "186505655967",
+    "project_id": "test-114d2",
+    "storage_bucket": "test-114d2.firebasestorage.app",
+    "firebase_url": "https://test-114d2-default-rtdb.firebaseio.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:186505655967:android:59d250cd79b5143ef394aa",
+        "android_client_info": {
+          "package_name": "com.aistudio.kaziagro.poultr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJq_np3ChfK8xZ8QaVSk-B7wmVTttAi2Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

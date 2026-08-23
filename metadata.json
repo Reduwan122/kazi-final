@@ -1,0 +1,7 @@
+{
+  "name": "কাজী এগ্রোটেক",
+  "description": "Layer Poultry Farm Management System - সম্পূর্ণ বাংলা লেয়ার পোল্ট্রি খামার ব্যবস্থাপনা অ্যাপ্লিকেশন",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

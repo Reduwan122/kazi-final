@@ -1,0 +1,427 @@
+package com.example.ui.screens
+
+import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Egg
+import androidx.compose.material.icons.filled.Paid
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.TableView
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.local.DailyReportEntity
+import com.example.data.local.MonthlyExpenseEntity
+import com.example.ui.components.BanglaNumberFormatter
+import com.example.ui.components.MainTopAppBar
+import com.example.ui.components.PdfPreviewModalDialog
+import com.example.ui.viewmodel.PoultryViewModel
+
+enum class ReportCategory(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    DAILY("দৈনিক রিপোর্ট", Icons.Default.DateRange),
+    MONTHLY("মাসিক রিপোর্ট", Icons.Default.CalendarMonth),
+    SALES("বিক্রয় রিপোর্ট", Icons.Default.Paid),
+    PRODUCTION("উৎপাদন রিপোর্ট", Icons.Default.Egg),
+    EXPENSE("ব্যয় রিপোর্ট", Icons.Default.AccountBalanceWallet),
+    PROFIT_LOSS("লাভ-ক্ষতি বিবরণী", Icons.Default.ShowChart)
+}
+
+@Composable
+fun ReportsScreen(
+    viewModel: PoultryViewModel
+) {
+    val context = LocalContext.current
+    val dailyReports by viewModel.dailyReports.collectAsState()
+    val expenses by viewModel.expenses.collectAsState()
+    val farmProfile by viewModel.farmProfile.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
+
+    val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
+    val canViewReports = currentUser?.canViewReportsAndAnalytics(userPerms) ?: false
+    val canDownload = currentUser?.canDownloadReports(userPerms) ?: false
+
+    var selectedCategory by remember { mutableStateOf(ReportCategory.MONTHLY) }
+    var selectedMonthFilter by remember { mutableStateOf(BanglaNumberFormatter.getCurrentDateFormatted().take(7)) }
+    var monthDropdownExpanded by remember { mutableStateOf(false) }
+
+    var showPdfPreviewModal by remember { mutableStateOf(false) }
+
+    // Months that actually have data (from either reports or expenses), plus the current month, newest first
+    val availableMonths = remember(dailyReports, expenses) {
+        (dailyReports.map { it.date.take(7) } + expenses.map { it.date.take(7) } + BanglaNumberFormatter.getCurrentDateFormatted().take(7))
+            .toSortedSet(compareByDescending { it })
+            .toList()
+    }
+
+    // Computed for selected month
+    val filteredDaily = remember(dailyReports, selectedMonthFilter) {
+        if (selectedMonthFilter == "সকল রেকর্ড") dailyReports
+        else dailyReports.filter { it.date.startsWith(selectedMonthFilter) }
+    }
+
+    val filteredExpenses = remember(expenses, selectedMonthFilter) {
+        if (selectedMonthFilter == "সকল রেকর্ড") expenses
+        else expenses.filter { it.date.startsWith(selectedMonthFilter) }
+    }
+
+    val totalProduction = filteredDaily.sumOf { it.eggProduction }
+    val totalSale = filteredDaily.sumOf { it.totalSale }
+    val totalExpense = filteredExpenses.sumOf { it.totalExpense }
+    val netProfit = totalSale - totalExpense
+
+    Scaffold(
+        topBar = {
+            MainTopAppBar(
+                title = "রিপোর্ট ও বিশ্লেষণ",
+                isRootScreen = true,
+                logoUri = farmProfile.logoUri,
+                logoEmoji = farmProfile.logoEmoji
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState())
+                .testTag("reports_screen"),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Month Filter & Actions Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "রিপোর্টের সময়কাল",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+
+                        Box {
+                            OutlinedButton(
+                                onClick = { monthDropdownExpanded = true },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = if (selectedMonthFilter == "সকল রেকর্ড") "সকল রেকর্ড" else BanglaNumberFormatter.formatYearMonth(selectedMonthFilter),
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = "Month filter",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = monthDropdownExpanded,
+                                onDismissRequest = { monthDropdownExpanded = false }
+                            ) {
+                                availableMonths.forEach { month ->
+                                    val currentMonth = BanglaNumberFormatter.getCurrentDateFormatted().take(7)
+                                    val label = BanglaNumberFormatter.formatYearMonth(month) +
+                                        if (month == currentMonth) " (চলতি মাস)" else ""
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            selectedMonthFilter = month
+                                            monthDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("সকল রেকর্ড") },
+                                    onClick = {
+                                        selectedMonthFilter = "সকল রেকর্ড"
+                                        monthDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Export / Print Action Buttons
+                    if (canDownload) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { showPdfPreviewModal = true },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_pdf")
+                            ) {
+                                Icon(imageVector = Icons.Default.PictureAsPdf, contentDescription = "PDF", modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("পিডিএফ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    if (selectedCategory == ReportCategory.EXPENSE) {
+                                        viewModel.exportExpensesCsv(context)
+                                    } else {
+                                        viewModel.exportDailyReportsCsv(context)
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_excel")
+                            ) {
+                                Icon(imageVector = Icons.Default.TableView, contentDescription = "Excel", modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("এক্সেল", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Summary Bento Cards for Filter
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "নির্বাচিত মাসের পরিসংখ্যান",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ReportStatItem(
+                        title = "মোট ডিম উৎপাদন",
+                        value = "${BanglaNumberFormatter.formatNumber(totalProduction)} পিস",
+                        icon = Icons.Default.Egg,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    ReportStatItem(
+                        title = "মোট বিক্রয়",
+                        value = BanglaNumberFormatter.formatCurrency(totalSale),
+                        icon = Icons.Default.Paid,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ReportStatItem(
+                        title = "মোট খামার ব্যয়",
+                        value = BanglaNumberFormatter.formatCurrency(totalExpense),
+                        icon = Icons.Default.AccountBalanceWallet,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    ReportStatItem(
+                        title = "নিট লাভ / উদ্বৃত্ত",
+                        value = BanglaNumberFormatter.formatCurrency(netProfit),
+                        icon = Icons.Default.ShowChart,
+                        color = if (netProfit >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Report Categories Grid (Bento style)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "রিপোর্টের ধরণ নির্বাচন করুন",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+
+                val categories = ReportCategory.values()
+                for (i in categories.indices step 2) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        ReportCategoryCard(
+                            category = categories[i],
+                            isSelected = selectedCategory == categories[i],
+                            onClick = {
+                                selectedCategory = categories[i]
+                                showPdfPreviewModal = true
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        if (i + 1 < categories.size) {
+                            ReportCategoryCard(
+                                category = categories[i + 1],
+                                isSelected = selectedCategory == categories[i + 1],
+                                onClick = {
+                                    selectedCategory = categories[i + 1]
+                                    showPdfPreviewModal = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(72.dp))
+        }
+    }
+
+    if (showPdfPreviewModal) {
+        val title = when (selectedCategory) {
+            ReportCategory.EXPENSE -> "মাসিক ব্যয় রেজিস্টার ($selectedMonthFilter)"
+            else -> "দৈনিক প্রতিবেদন ($selectedMonthFilter)"
+        }
+
+        PdfPreviewModalDialog(
+            title = title,
+            farmProfile = farmProfile,
+            dailyReports = if (selectedCategory == ReportCategory.EXPENSE) emptyList() else filteredDaily,
+            expenses = if (selectedCategory == ReportCategory.EXPENSE) filteredExpenses else emptyList(),
+            onDismiss = { showPdfPreviewModal = false }
+        )
+    }
+}
+
+@Composable
+fun ReportStatItem(
+    title: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = icon, contentDescription = title, tint = color, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    ),
+                    maxLines = 1
+                )
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = color,
+                    fontSize = 16.sp
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun ReportCategoryCard(
+    category: ReportCategory,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .testTag("report_card_${category.name}"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = category.icon,
+                contentDescription = category.title,
+                tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = category.title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp
+                )
+            )
+        }
+    }
+}
