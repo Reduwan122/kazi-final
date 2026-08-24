@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,13 +48,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.SnackbarController
+import com.example.ui.components.rememberHaptics
 
 @Composable
 fun UserProfileScreen(
@@ -63,7 +63,7 @@ fun UserProfileScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
-    val context = LocalContext.current
+    val haptics = rememberHaptics()
     val currentUser by viewModel.currentUser.collectAsState()
 
     var name by remember(currentUser) { mutableStateOf(currentUser?.username ?: "") }
@@ -212,17 +212,18 @@ fun UserProfileScreen(
 
                     Button(
                         onClick = {
+                            haptics.tap()
                             isSaving = true
                             viewModel.updateCurrentUserProfile(
                                 name = name,
                                 phone = phone,
                                 onSuccess = {
                                     isSaving = false
-                                    Toast.makeText(context, "প্রোফাইল আপডেট সম্পন্ন হয়েছে!", Toast.LENGTH_SHORT).show()
+                                    SnackbarController.showMessage("প্রোফাইল আপডেট সম্পন্ন হয়েছে!")
                                 },
                                 onError = { err ->
                                     isSaving = false
-                                    Toast.makeText(context, "ত্রুটি: $err", Toast.LENGTH_SHORT).show()
+                                    SnackbarController.showError("ত্রুটি: $err")
                                 }
                             )
                         },

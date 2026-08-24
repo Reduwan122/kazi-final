@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -83,6 +82,9 @@ import com.example.R
 import com.example.ui.components.FarmLogoDisplay
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.viewmodel.PoultryViewModel
+import androidx.compose.material3.SnackbarDuration
+import com.example.ui.components.SnackbarController
+import com.example.ui.components.rememberHaptics
 
 @Composable
 fun SettingsScreen(
@@ -93,6 +95,7 @@ fun SettingsScreen(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = rememberHaptics()
     val farmProfile by viewModel.farmProfile.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
@@ -119,11 +122,11 @@ fun SettingsScreen(
                 onSuccess = {
                     isUploadingLogo = false
                     showLogoSelectionDialog = false
-                    Toast.makeText(context, "লোগো ছবি সফলভাবে আপলোড ও আপডেট করা হয়েছে!", Toast.LENGTH_LONG).show()
+                    SnackbarController.showMessage("লোগো ছবি সফলভাবে আপলোড ও আপডেট করা হয়েছে!", SnackbarDuration.Long)
                 },
                 onError = { error ->
                     isUploadingLogo = false
-                    Toast.makeText(context, "লোগো আপলোড সমস্যা: $error", Toast.LENGTH_LONG).show()
+                    SnackbarController.showError("লোগো আপলোড সমস্যা: $error")
                 }
             )
         }
@@ -218,7 +221,7 @@ fun SettingsScreen(
                         if (isAdmin) {
                             showEditProfileDialog = true
                         } else {
-                            Toast.makeText(context, "খামার প্রোফাইল ও সেটিংস শুধুমাত্র এডমিন পরিবর্তন করতে পারেন", Toast.LENGTH_SHORT).show()
+                            SnackbarController.showError("খামার প্রোফাইল ও সেটিংস শুধুমাত্র এডমিন পরিবর্তন করতে পারেন")
                         }
                     }
                     .testTag("card_farm_profile"),
@@ -514,7 +517,7 @@ fun SettingsScreen(
                             if (isAdmin) {
                                 showEditProfileDialog = true
                             } else {
-                                Toast.makeText(context, "খামার প্রোফাইল ও তথ্য শুধুমাত্র এডমিন পরিবর্তন করতে পারেন", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showError("খামার প্রোফাইল ও তথ্য শুধুমাত্র এডমিন পরিবর্তন করতে পারেন")
                             }
                         }
                     )
@@ -530,7 +533,7 @@ fun SettingsScreen(
                             if (isAdmin) {
                                 showLogoSelectionDialog = true
                             } else {
-                                Toast.makeText(context, "খামার লোগো পরিবর্তন শুধুমাত্র এডমিন করতে পারেন", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showError("খামার লোগো পরিবর্তন শুধুমাত্র এডমিন করতে পারেন")
                             }
                         }
                     )
@@ -828,7 +831,7 @@ fun SettingsScreen(
                                 onSelect = {
                                     viewModel.updateFarmLogo(emoji)
                                     showLogoSelectionDialog = false
-                                    Toast.makeText(context, "লোগো আপডেট হয়েছে!", Toast.LENGTH_SHORT).show()
+                                    SnackbarController.showMessage("লোগো আপডেট হয়েছে!")
                                 }
                             )
                         }
@@ -844,7 +847,7 @@ fun SettingsScreen(
                                 onSelect = {
                                     viewModel.updateFarmLogo(emoji)
                                     showLogoSelectionDialog = false
-                                    Toast.makeText(context, "লোগো আপডেট হয়েছে!", Toast.LENGTH_SHORT).show()
+                                    SnackbarController.showMessage("লোগো আপডেট হয়েছে!")
                                 }
                             )
                         }
@@ -856,7 +859,7 @@ fun SettingsScreen(
                             onClick = {
                                 viewModel.resetToDefaultLogo {
                                     showLogoSelectionDialog = false
-                                    Toast.makeText(context, "ডিফল্ট লোগো রিসেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                    SnackbarController.showMessage("ডিফল্ট লোগো রিসেট করা হয়েছে")
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -925,6 +928,7 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        haptics.tap()
                         viewModel.updateFarmProfile(
                             farmName = nameInput,
                             ownerName = ownerInput,
@@ -933,7 +937,7 @@ fun SettingsScreen(
                             logoEmoji = farmProfile.logoEmoji
                         )
                         showEditProfileDialog = false
-                        Toast.makeText(context, "ফার্ম প্রোফাইল আপডেট সফল হয়েছে!", Toast.LENGTH_SHORT).show()
+                        SnackbarController.showMessage("ফার্ম প্রোফাইল আপডেট সফল হয়েছে!")
                     }
                 ) {
                     Text("সংরক্ষণ করুন")
@@ -980,6 +984,7 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        haptics.tap()
                         if (newPass.length < 6) {
                             errorMsg = "পাসওয়ার্ড ন্যূনতম ৬ অক্ষরের হতে হবে।"
                         } else if (newPass != confirmPass) {
@@ -989,7 +994,7 @@ fun SettingsScreen(
                                 newPass = newPass,
                                 onSuccess = {
                                     showChangePasswordDialog = false
-                                    Toast.makeText(context, "পাসওয়ার্ড পরিবর্তন সফল হয়েছে!", Toast.LENGTH_SHORT).show()
+                                    SnackbarController.showMessage("পাসওয়ার্ড পরিবর্তন সফল হয়েছে!")
                                 },
                                 onError = { errorMsg = it }
                             )
@@ -1037,6 +1042,7 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        haptics.confirm()
                         showLogoutConfirm = false
                         viewModel.logout {
                             onLogout()

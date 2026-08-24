@@ -6,7 +6,6 @@ import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -562,7 +561,7 @@ fun printHtmlDocument(context: Context, docName: String, html: String) {
         }
         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
     } catch (e: Exception) {
-        Toast.makeText(context, "প্রিন্ট সেবা চালু করা যায়নি: ${e.message}", Toast.LENGTH_SHORT).show()
+        SnackbarController.showError("প্রিন্ট সেবা চালু করা যায়নি: ${e.message}")
     }
 }
 

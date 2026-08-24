@@ -65,6 +65,7 @@ import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.components.RowActionBottomSheetDialog
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.rememberHaptics
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -76,6 +77,7 @@ fun DailyReportScreen(
     onPreviewPdf: (List<DailyReportEntity>) -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = rememberHaptics()
     val dailyReports by viewModel.dailyReports.collectAsState()
     val farmProfile by viewModel.farmProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
@@ -139,7 +141,10 @@ fun DailyReportScreen(
         floatingActionButton = {
             if (canAddReport) {
                 FloatingActionButton(
-                    onClick = onNavigateToAddReport,
+                    onClick = {
+                        haptics.tap()
+                        onNavigateToAddReport()
+                    },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(16.dp),
@@ -581,7 +586,10 @@ fun DailyReportScreen(
             onDismiss = { showActionDialog = false },
             onView = { onNavigateToDetail(report.id) },
             onEdit = { onNavigateToEditReport(report.id) },
-            onDelete = { viewModel.deleteDailyReport(report.id) },
+            onDelete = {
+                haptics.confirm()
+                viewModel.deleteDailyReport(report.id)
+            },
             canEdit = canEditReport,
             canDelete = canDeleteReport
         )

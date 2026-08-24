@@ -2,7 +2,6 @@ package com.example.ui.screens
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +59,8 @@ import com.example.data.local.MonthlyExpenseEntity
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.components.PdfPreviewModalDialog
+import com.example.ui.components.rememberHaptics
+import com.example.ui.components.scaleClickable
 import com.example.ui.viewmodel.PoultryViewModel
 
 enum class ReportCategory(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
@@ -76,6 +77,7 @@ fun ReportsScreen(
     viewModel: PoultryViewModel
 ) {
     val context = LocalContext.current
+    val haptics = rememberHaptics()
     val dailyReports by viewModel.dailyReports.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
     val farmProfile by viewModel.farmProfile.collectAsState()
@@ -208,7 +210,10 @@ fun ReportsScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                onClick = { showPdfPreviewModal = true },
+                                onClick = {
+                                    haptics.tap()
+                                    showPdfPreviewModal = true
+                                },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                 modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_pdf")
@@ -220,6 +225,7 @@ fun ReportsScreen(
 
                             OutlinedButton(
                                 onClick = {
+                                    haptics.tap()
                                     if (selectedCategory == ReportCategory.EXPENSE) {
                                         viewModel.exportExpensesCsv(context)
                                     } else {
@@ -396,7 +402,7 @@ fun ReportCategoryCard(
     Card(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
+            .scaleClickable { onClick() }
             .testTag("report_card_${category.name}"),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(

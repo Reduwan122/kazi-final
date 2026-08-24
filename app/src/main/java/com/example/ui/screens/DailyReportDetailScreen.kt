@@ -62,6 +62,7 @@ import com.example.data.local.DailyReportEntity
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.rememberHaptics
 
 @Composable
 fun DailyReportDetailScreen(
@@ -72,6 +73,7 @@ fun DailyReportDetailScreen(
     onPdfPreview: (DailyReportEntity) -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = rememberHaptics()
     val dailyReports by viewModel.dailyReports.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val report = dailyReports.find { it.id == reportId }
@@ -465,6 +467,7 @@ fun DailyReportDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.confirm()
                         viewModel.deleteDailyReport(report.id)
                         showDeleteConfirm = false
                         onBack()

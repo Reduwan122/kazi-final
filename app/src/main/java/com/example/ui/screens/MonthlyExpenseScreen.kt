@@ -59,6 +59,7 @@ import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.components.RowActionBottomSheetDialog
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.rememberHaptics
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -69,6 +70,7 @@ fun MonthlyExpenseScreen(
     onPreviewExpensePdf: (List<MonthlyExpenseEntity>) -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = rememberHaptics()
     val expenses by viewModel.expenses.collectAsState()
     val farmProfile by viewModel.farmProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
@@ -136,7 +138,10 @@ fun MonthlyExpenseScreen(
         floatingActionButton = {
             if (canAddExpense) {
                 FloatingActionButton(
-                    onClick = onNavigateToAddExpense,
+                    onClick = {
+                        haptics.tap()
+                        onNavigateToAddExpense()
+                    },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(16.dp),
@@ -593,7 +598,10 @@ fun MonthlyExpenseScreen(
             onDismiss = { showActionDialog = false },
             onView = { onNavigateToEditExpense(exp.id) },
             onEdit = { onNavigateToEditExpense(exp.id) },
-            onDelete = { viewModel.deleteExpense(exp.id) },
+            onDelete = {
+                haptics.confirm()
+                viewModel.deleteExpense(exp.id)
+            },
             canEdit = canEditExpense,
             canDelete = canDeleteExpense
         )

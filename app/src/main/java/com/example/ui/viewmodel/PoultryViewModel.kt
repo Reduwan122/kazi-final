@@ -7,7 +7,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
-import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +16,7 @@ import com.example.data.local.MonthlyExpenseEntity
 import com.example.data.local.UserEntity
 import com.example.data.repository.PoultryRepository
 import com.example.ui.components.BanglaNumberFormatter
+import com.example.ui.components.SnackbarController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -493,7 +493,7 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
                 val file = repository.exportDailyReportsToCsv(reports)
                 shareCsvFile(context, file, "কাজী এগ্রোটেক - দৈনিক রিপোর্ট")
             } catch (e: Exception) {
-                Toast.makeText(context, "এক্সেল এক্সপোর্ট ব্যর্থ হয়েছে: ${e.message}", Toast.LENGTH_SHORT).show()
+                SnackbarController.showError("এক্সেল এক্সপোর্ট ব্যর্থ হয়েছে: ${e.message}")
             }
         }
     }
@@ -505,7 +505,7 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
                 val file = repository.exportMonthlyExpensesToCsv(list)
                 shareCsvFile(context, file, "কাজী এগ্রোটেক - মাসিক ব্যয় রেজিস্টার")
             } catch (e: Exception) {
-                Toast.makeText(context, "এক্সেল এক্সপোর্ট ব্যর্থ হয়েছে: ${e.message}", Toast.LENGTH_SHORT).show()
+                SnackbarController.showError("এক্সেল এক্সপোর্ট ব্যর্থ হয়েছে: ${e.message}")
             }
         }
     }
@@ -528,7 +528,7 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     fun manualBackup(context: Context) {
         viewModelScope.launch {
             syncStatus.value = "ফায়ারবেস ক্লাউড সিঙ্ক সফল (${BanglaNumberFormatter.toBanglaDigits(SimpleDateFormat("hh:mm a", Locale.US).format(Date()))})"
-            Toast.makeText(context, "ক্লাউড সিঙ্ক সফল হয়েছে!", Toast.LENGTH_SHORT).show()
+            SnackbarController.showMessage("ক্লাউড সিঙ্ক সফল হয়েছে!")
         }
     }
 

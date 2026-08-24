@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.rememberHaptics
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -65,6 +66,7 @@ fun AddEditMonthlyExpenseScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = rememberHaptics()
 
     var date by remember { mutableStateOf(BanglaNumberFormatter.getCurrentDateFormatted()) }
     var feedCostText by remember { mutableStateOf("") }
@@ -364,6 +366,7 @@ fun AddEditMonthlyExpenseScreen(
 
                 Button(
                     onClick = {
+                        haptics.tap()
                         viewModel.saveMonthlyExpense(
                             id = expenseId,
                             date = date,

@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +45,8 @@ import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.DashboardStatCard
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.components.ProductionChartCard
+import com.example.ui.components.rememberHaptics
+import com.example.ui.components.scaleClickable
 import com.example.ui.viewmodel.PoultryViewModel
 
 @Composable
@@ -57,6 +58,7 @@ fun DashboardScreen(
     onNavigateToDailyReport: () -> Unit,
     onNavigateToExpense: () -> Unit
 ) {
+    val haptics = rememberHaptics()
     val dailyReports by viewModel.dailyReports.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
     val stats by viewModel.dashboardStats.collectAsState()
@@ -79,7 +81,10 @@ fun DashboardScreen(
         floatingActionButton = {
             if (canAddReport) {
                 FloatingActionButton(
-                    onClick = onNavigateToAddReport,
+                    onClick = {
+                        haptics.tap()
+                        onNavigateToAddReport()
+                    },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     shape = RoundedCornerShape(16.dp),
@@ -218,7 +223,7 @@ fun QuickActionButton(
     Card(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
+            .scaleClickable { onClick() }
             .testTag(testTag),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),

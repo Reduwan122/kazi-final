@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -68,13 +67,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.RolePermissionConfig
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.SnackbarController
+import com.example.ui.components.rememberHaptics
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +83,7 @@ fun RolePermissionEditorScreen(
     onBack: () -> Unit,
     initialRole: String = "MANAGER"
 ) {
-    val context = LocalContext.current
+    val haptics = rememberHaptics()
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
 
     var selectedRoleKey by remember { mutableStateOf(initialRole.uppercase()) }
@@ -159,12 +159,11 @@ fun RolePermissionEditorScreen(
                 actions = {
                     Button(
                         onClick = {
+                            haptics.tap()
                             viewModel.updateRolePermissions(currentConfig) {
-                                Toast.makeText(
-                                    context,
-                                    "${currentConfig.roleDisplayName} পারমিশন সফলভাবে সংরক্ষণ করা হয়েছে!",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                SnackbarController.showMessage(
+                                    "${currentConfig.roleDisplayName} পারমিশন সফলভাবে সংরক্ষণ করা হয়েছে!"
+                                )
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),

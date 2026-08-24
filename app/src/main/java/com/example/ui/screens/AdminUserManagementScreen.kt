@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,7 +57,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -73,6 +71,8 @@ import com.example.data.local.UserEntity
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.SnackbarController
+import com.example.ui.components.rememberHaptics
 
 @Composable
 fun AdminUserManagementScreen(
@@ -80,7 +80,7 @@ fun AdminUserManagementScreen(
     onBack: () -> Unit,
     onNavigateToRolePermissions: (String) -> Unit = {}
 ) {
-    val context = LocalContext.current
+    val haptics = rememberHaptics()
     val focusManager = LocalFocusManager.current
     val allUsers by viewModel.allUsers.collectAsState()
     val farmProfile by viewModel.farmProfile.collectAsState()
@@ -164,7 +164,10 @@ fun AdminUserManagementScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddUserDialog = true },
+                onClick = {
+                    haptics.tap()
+                    showAddUserDialog = true
+                },
                 containerColor = primaryGreen,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp),
@@ -534,6 +537,7 @@ fun AdminUserManagementScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        haptics.tap()
                         val updated = user.copy(
                             username = editName.trim(),
                             phone = editPhone.trim(),
@@ -543,11 +547,11 @@ fun AdminUserManagementScreen(
                         viewModel.adminUpdateUser(
                             user = updated,
                             onSuccess = {
-                                Toast.makeText(context, "ইউজার সফলভাবে আপডেট হয়েছে!", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showMessage("ইউজার সফলভাবে আপডেট হয়েছে!")
                                 editingUser = null
                             },
                             onError = { err ->
-                                Toast.makeText(context, "ত্রুটি: $err", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showError("ত্রুটি: $err")
                             }
                         )
                     },
@@ -690,8 +694,9 @@ fun AdminUserManagementScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        haptics.tap()
                         if (newName.isBlank()) {
-                            Toast.makeText(context, "অনুগ্রহ করে নাম লিখুন", Toast.LENGTH_SHORT).show()
+                            SnackbarController.showError("অনুগ্রহ করে নাম লিখুন")
                             return@Button
                         }
                         val user = UserEntity(
@@ -706,11 +711,11 @@ fun AdminUserManagementScreen(
                         viewModel.adminAddUser(
                             user = user,
                             onSuccess = {
-                                Toast.makeText(context, "নতুন ইউজার সফলভাবে যুক্ত করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showMessage("নতুন ইউজার সফলভাবে যুক্ত করা হয়েছে!")
                                 showAddUserDialog = false
                             },
                             onError = { err ->
-                                Toast.makeText(context, "ত্রুটি: $err", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showError("ত্রুটি: $err")
                             }
                         )
                     },
@@ -742,14 +747,15 @@ fun AdminUserManagementScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        haptics.confirm()
                         viewModel.deleteUser(
                             userId = u.id,
                             onSuccess = {
-                                Toast.makeText(context, "অ্যাকাউন্ট মুছে ফেলা হয়েছে", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showMessage("অ্যাকাউন্ট মুছে ফেলা হয়েছে")
                                 userToDelete = null
                             },
                             onError = { err ->
-                                Toast.makeText(context, "ত্রুটি: $err", Toast.LENGTH_SHORT).show()
+                                SnackbarController.showError("ত্রুটি: $err")
                             }
                         )
                     },
@@ -922,7 +928,8 @@ fun UserItemCardDesign(
             // Right: Edit + Delete Icons
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Wider than the usual 8dp so the two 38dp targets are harder to mis-tap on small phones.
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 IconButton(
                     onClick = onEditClick,

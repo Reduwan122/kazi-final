@@ -60,6 +60,7 @@ import com.example.data.local.DailyReportEntity
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.viewmodel.PoultryViewModel
+import com.example.ui.components.rememberHaptics
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -72,6 +73,7 @@ fun AddEditDailyReportScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = rememberHaptics()
 
     var date by remember { mutableStateOf(BanglaNumberFormatter.getCurrentDateFormatted()) }
     var currentBirdsText by remember { mutableStateOf("12500") }
@@ -495,6 +497,7 @@ fun AddEditDailyReportScreen(
 
                 Button(
                     onClick = {
+                        haptics.tap()
                         if (currentBirdsText.isEmpty() || currentBirdsText.toIntOrNull() == null) {
                             validationError = "বর্তমান মুরগির সংখ্যা সঠিকভাবে লিখুন"
                             return@Button

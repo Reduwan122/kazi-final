@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -62,7 +61,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -76,13 +74,14 @@ import com.example.R
 import com.example.data.local.UserEntity
 import com.example.ui.components.FarmLogoDisplay
 import com.example.ui.viewmodel.PoultryViewModel
+import androidx.compose.material3.SnackbarDuration
+import com.example.ui.components.SnackbarController
 
 @Composable
 fun LoginScreen(
     viewModel: PoultryViewModel,
     onLoginSuccess: () -> Unit
 ) {
-    val context = LocalContext.current
     val userState by viewModel.currentUser.collectAsState()
     val farmProfile by viewModel.farmProfile.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Login, 1: Register
@@ -123,7 +122,7 @@ fun LoginScreen(
                         onLoginSuccess()
                     },
                     onNotApproved = {
-                        Toast.makeText(context, "এখনও এডমিন অনুমোদন মেলেনি। অনুগ্রহ করে অপেক্ষা করুন।", Toast.LENGTH_SHORT).show()
+                        SnackbarController.showError("এখনও এডমিন অনুমোদন মেলেনি। অনুগ্রহ করে অপেক্ষা করুন।")
                     }
                 )
             },
@@ -494,7 +493,7 @@ fun LoginScreen(
                                 onSuccess = { user ->
                                     isLoading = false
                                     if (user.isApprovedUser()) {
-                                        Toast.makeText(context, "অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!", Toast.LENGTH_SHORT).show()
+                                        SnackbarController.showMessage("অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!")
                                         onLoginSuccess()
                                     } else {
                                         pendingUser = user
@@ -602,10 +601,10 @@ fun LoginScreen(
                                     email = forgotEmail,
                                     onSuccess = {
                                         showForgotPasswordDialog = false
-                                        Toast.makeText(context, "পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে।", Toast.LENGTH_LONG).show()
+                                        SnackbarController.showMessage("পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে।", SnackbarDuration.Long)
                                     },
                                     onError = { err ->
-                                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                        SnackbarController.showError(err)
                                     }
                                 )
                             }

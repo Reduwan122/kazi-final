@@ -15,7 +15,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,8 +27,10 @@ import androidx.navigation.navArgument
 import com.example.data.local.DailyReportEntity
 import com.example.data.local.MonthlyExpenseEntity
 import com.example.ui.components.AppBottomNavBar
+import com.example.ui.components.AppSnackbarHost
 import com.example.ui.components.BottomNavTab
 import com.example.ui.components.PdfPreviewModalDialog
+import com.example.ui.components.SnackbarBottomInset
 import com.example.ui.screens.AddEditDailyReportScreen
 import com.example.ui.screens.AddEditMonthlyExpenseScreen
 import com.example.ui.screens.AdminUserManagementScreen
@@ -52,7 +56,17 @@ class MainActivity : ComponentActivity() {
             val farmProfile by viewModel.farmProfile.collectAsState()
 
             KaziAgrotechTheme(darkTheme = farmProfile.isDarkMode) {
-                MainAppNavigation(viewModel = viewModel)
+                // One snackbar host for the whole app: several screens (login, splash) are not
+                // built on a Scaffold, and messages also come from the ViewModel and dialogs.
+                Box(modifier = Modifier.fillMaxSize()) {
+                    MainAppNavigation(viewModel = viewModel)
+
+                    AppSnackbarHost(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .testTag("app_snackbar_host")
+                    )
+                }
             }
         }
     }
@@ -238,6 +252,9 @@ fun MainContainerScreen(
             )
         }
     ) { innerPadding ->
+        // Keep the app-wide snackbar above the bottom navigation bar while this tabbed screen is shown.
+        SnackbarBottomInset(innerPadding.calculateBottomPadding())
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
