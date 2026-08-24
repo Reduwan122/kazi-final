@@ -67,6 +67,7 @@ fun MonthlyExpenseScreen(
     viewModel: PoultryViewModel,
     onNavigateToAddExpense: () -> Unit,
     onNavigateToEditExpense: (Long) -> Unit,
+    onNavigateToDetail: (Long) -> Unit,
     onPreviewExpensePdf: (List<MonthlyExpenseEntity>) -> Unit
 ) {
     val context = LocalContext.current
@@ -419,7 +420,7 @@ fun MonthlyExpenseScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .combinedClickable(
-                                        onClick = { onNavigateToEditExpense(exp.id) },
+                                        onClick = { onNavigateToDetail(exp.id) },
                                         onLongClick = {
                                             selectedExpenseForAction = exp
                                             showActionDialog = true
@@ -596,7 +597,7 @@ fun MonthlyExpenseScreen(
         RowActionBottomSheetDialog(
             title = "ব্যয়: ${BanglaNumberFormatter.formatBanglaDate(exp.date)}",
             onDismiss = { showActionDialog = false },
-            onView = { onNavigateToEditExpense(exp.id) },
+            onView = { onNavigateToDetail(exp.id) },
             onEdit = { onNavigateToEditExpense(exp.id) },
             onDelete = {
                 haptics.confirm()

@@ -38,6 +38,7 @@ import com.example.ui.screens.DailyReportDetailScreen
 import com.example.ui.screens.DailyReportScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.LoginScreen
+import com.example.ui.screens.MonthlyExpenseDetailScreen
 import com.example.ui.screens.MonthlyExpenseScreen
 import com.example.ui.screens.ReportsScreen
 import com.example.ui.screens.RolePermissionEditorScreen
@@ -113,6 +114,7 @@ fun MainAppNavigation(viewModel: PoultryViewModel) {
                 onNavigateToDailyReportDetail = { id -> navController.navigate("daily_report_detail/$id") },
                 onNavigateToAddExpense = { navController.navigate("add_edit_expense/0") },
                 onNavigateToEditExpense = { id -> navController.navigate("add_edit_expense/$id") },
+                onNavigateToExpenseDetail = { id -> navController.navigate("expense_detail/$id") },
                 onNavigateToAdmin = { navController.navigate("admin_management") },
                 onNavigateToRolePermissions = { role -> navController.navigate("role_permissions/$role") },
                 onNavigateToProfile = { navController.navigate("user_profile") },
@@ -174,6 +176,32 @@ fun MainAppNavigation(viewModel: PoultryViewModel) {
             )
         }
 
+        composable(
+            route = "expense_detail/{expenseId}",
+            arguments = listOf(navArgument("expenseId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getLong("expenseId") ?: 0L
+            var pdfExpenseToPreview by remember { mutableStateOf<MonthlyExpenseEntity?>(null) }
+            val farmProfile by viewModel.farmProfile.collectAsState()
+
+            MonthlyExpenseDetailScreen(
+                expenseId = expenseId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate("add_edit_expense/$id") },
+                onPdfPreview = { expense -> pdfExpenseToPreview = expense }
+            )
+
+            if (pdfExpenseToPreview != null) {
+                PdfPreviewModalDialog(
+                    title = "মাসিক ব্যয় (${pdfExpenseToPreview!!.date})",
+                    farmProfile = farmProfile,
+                    expenses = listOf(pdfExpenseToPreview!!),
+                    onDismiss = { pdfExpenseToPreview = null }
+                )
+            }
+        }
+
         composable("admin_management") {
             AdminUserManagementScreen(
                 viewModel = viewModel,
@@ -226,6 +254,7 @@ fun MainContainerScreen(
     onNavigateToDailyReportDetail: (Long) -> Unit,
     onNavigateToAddExpense: () -> Unit,
     onNavigateToEditExpense: (Long) -> Unit,
+    onNavigateToExpenseDetail: (Long) -> Unit,
     onNavigateToAdmin: () -> Unit,
     onNavigateToRolePermissions: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit,
@@ -282,6 +311,7 @@ fun MainContainerScreen(
                     viewModel = viewModel,
                     onNavigateToAddExpense = onNavigateToAddExpense,
                     onNavigateToEditExpense = onNavigateToEditExpense,
+                    onNavigateToDetail = onNavigateToExpenseDetail,
                     onPreviewExpensePdf = { list -> pdfPreviewExpenses = list }
                 )
 

@@ -172,32 +172,49 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
-            val totalSale = eggSold * eggPrice
-            val previousStock = repository.getPreviousStock(date)
-            val currentStock = previousStock + eggProduction - eggSold
+            val isUpdate = id > 0L
+            try {
+                val totalSale = eggSold * eggPrice
+                val previousStock = repository.getPreviousStock(date)
+                val currentStock = previousStock + eggProduction - eggSold
 
-            val entity = DailyReportEntity(
-                id = id,
-                date = date,
-                currentBirds = currentBirds,
-                deadBirds = deadBirds,
-                eggProduction = eggProduction,
-                eggSold = eggSold,
-                eggPrice = eggPrice,
-                totalSale = totalSale,
-                medicineCost = medicineCost,
-                currentStock = currentStock.coerceAtLeast(0),
-                remarks = remarks,
-                updatedAt = System.currentTimeMillis()
-            )
-            repository.saveDailyReport(entity)
-            onSuccess()
+                val entity = DailyReportEntity(
+                    id = id,
+                    date = date,
+                    currentBirds = currentBirds,
+                    deadBirds = deadBirds,
+                    eggProduction = eggProduction,
+                    eggSold = eggSold,
+                    eggPrice = eggPrice,
+                    totalSale = totalSale,
+                    medicineCost = medicineCost,
+                    currentStock = currentStock.coerceAtLeast(0),
+                    remarks = remarks,
+                    updatedAt = System.currentTimeMillis()
+                )
+                repository.saveDailyReport(entity)
+                SnackbarController.showMessage(
+                    if (isUpdate) "দৈনিক রিপোর্ট আপডেট করা হয়েছে!"
+                    else "নতুন দৈনিক রিপোর্ট সংরক্ষণ করা হয়েছে!"
+                )
+                onSuccess()
+            } catch (e: Exception) {
+                SnackbarController.showError(
+                    if (isUpdate) "রিপোর্ট আপডেট ব্যর্থ হয়েছে: ${e.message}"
+                    else "রিপোর্ট সংরক্ষণ ব্যর্থ হয়েছে: ${e.message}"
+                )
+            }
         }
     }
 
     fun deleteDailyReport(id: Long) {
         viewModelScope.launch {
-            repository.deleteDailyReportById(id)
+            try {
+                repository.deleteDailyReportById(id)
+                SnackbarController.showMessage("দৈনিক রিপোর্ট মুছে ফেলা হয়েছে")
+            } catch (e: Exception) {
+                SnackbarController.showError("রিপোর্ট মুছে ফেলা যায়নি: ${e.message}")
+            }
         }
     }
 
@@ -217,32 +234,49 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
-            val total = feedCost + medicineCost + staffMarket + staffSalary +
-                    vehicleRepair + assets + electricityBill + otherExpense
+            val isUpdate = id > 0L
+            try {
+                val total = feedCost + medicineCost + staffMarket + staffSalary +
+                        vehicleRepair + assets + electricityBill + otherExpense
 
-            val entity = MonthlyExpenseEntity(
-                id = id,
-                date = date,
-                feedCost = feedCost,
-                medicineCost = medicineCost,
-                staffMarket = staffMarket,
-                staffSalary = staffSalary,
-                vehicleRepair = vehicleRepair,
-                assets = assets,
-                electricityBill = electricityBill,
-                otherExpense = otherExpense,
-                totalExpense = total,
-                remarks = remarks,
-                updatedAt = System.currentTimeMillis()
-            )
-            repository.saveMonthlyExpense(entity)
-            onSuccess()
+                val entity = MonthlyExpenseEntity(
+                    id = id,
+                    date = date,
+                    feedCost = feedCost,
+                    medicineCost = medicineCost,
+                    staffMarket = staffMarket,
+                    staffSalary = staffSalary,
+                    vehicleRepair = vehicleRepair,
+                    assets = assets,
+                    electricityBill = electricityBill,
+                    otherExpense = otherExpense,
+                    totalExpense = total,
+                    remarks = remarks,
+                    updatedAt = System.currentTimeMillis()
+                )
+                repository.saveMonthlyExpense(entity)
+                SnackbarController.showMessage(
+                    if (isUpdate) "মাসিক ব্যয় এন্ট্রি আপডেট করা হয়েছে!"
+                    else "নতুন মাসিক ব্যয় এন্ট্রি সংরক্ষণ করা হয়েছে!"
+                )
+                onSuccess()
+            } catch (e: Exception) {
+                SnackbarController.showError(
+                    if (isUpdate) "ব্যয় এন্ট্রি আপডেট ব্যর্থ হয়েছে: ${e.message}"
+                    else "ব্যয় এন্ট্রি সংরক্ষণ ব্যর্থ হয়েছে: ${e.message}"
+                )
+            }
         }
     }
 
     fun deleteExpense(id: Long) {
         viewModelScope.launch {
-            repository.deleteExpenseById(id)
+            try {
+                repository.deleteExpenseById(id)
+                SnackbarController.showMessage("মাসিক ব্যয় এন্ট্রি মুছে ফেলা হয়েছে")
+            } catch (e: Exception) {
+                SnackbarController.showError("ব্যয় এন্ট্রি মুছে ফেলা যায়নি: ${e.message}")
+            }
         }
     }
 
