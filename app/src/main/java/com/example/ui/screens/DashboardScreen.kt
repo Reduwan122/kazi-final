@@ -57,7 +57,8 @@ fun DashboardScreen(
     onNavigateToReports: () -> Unit,
     onNavigateToDailyReport: () -> Unit,
     onNavigateToExpense: () -> Unit,
-    onOpenNotifications: () -> Unit = {}
+    onOpenNotifications: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val haptics = rememberHaptics()
     val dailyReports by viewModel.dailyReports.collectAsState()
@@ -81,8 +82,11 @@ fun DashboardScreen(
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
                 logoEmoji = farmProfile.logoEmoji,
+                userProfileImageUri = currentUser?.profileImageUri ?: "",
+                username = currentUser?.username ?: "",
                 hasUnreadNotification = hasUnreadNotification,
-                onNotificationClick = onOpenNotifications
+                onNotificationClick = onOpenNotifications,
+                onProfileClick = onNavigateToProfile
             )
         },
         floatingActionButton = {

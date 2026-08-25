@@ -392,10 +392,95 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun updateCurrentUserProfile(name: String, phone: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun updateCurrentUserProfile(
+        name: String,
+        phone: String,
+        profileImageUri: String? = null,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
-            val result = repository.updateCurrentUserProfile(name, phone)
+            val result = repository.updateCurrentUserProfile(name, phone, profileImageUri)
             if (result.isSuccess) onSuccess() else onError(result.exceptionOrNull()?.message ?: "আপডেট করা যায়নি")
+        }
+    }
+
+    fun uploadUserProfileImageFromUri(
+        context: Context,
+        imageUri: Uri,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(imageUri)
+                    ?: throw Exception("ছবি ফাইল ওপেন করা যায়নি")
+                val originalBitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+
+                if (originalBitmap == null) {
+                    withContext(Dispatchers.Main) { onError("ছবির ফাইল সঠিক নয় বা ক্ষতিগ্রস্থ") }
+                    return@launch
+                }
+
+                // Scale down to max 512px
+                val maxDimension = 512
+                val width = originalBitmap.width
+                val height = originalBitmap.height
+                val scale = if (width > height) {
+                    if (width > maxDimension) maxDimension.toFloat() / width else 1.0f
+                } else {
+                    if (height > maxDimension) maxDimension.toFloat() / height else 1.0f
+                }
+
+                val scaledBitmap = if (scale < 1.0f) {
+                    Bitmap.createScaledBitmap(
+                        originalBitmap,
+                        (width * scale).toInt().coerceAtLeast(1),
+                        (height * scale).toInt().coerceAtLeast(1),
+                        true
+                    )
+                } else {
+                    originalBitmap
+                }
+
+                val outputStream = ByteArrayOutputStream()
+                scaledBitmap.compress(Bitmap.CompressFormat.PNG, 90, outputStream)
+                val byteArray = outputStream.toByteArray()
+                val base64String = Base64.encodeToString(byteArray, Base64.NO_WRAP)
+                val dataUri = "data:image/png;base64,$base64String"
+
+                val current = currentUser.value
+                if (current != null) {
+                    repository.updateCurrentUserProfile(
+                        name = current.username,
+                        phone = current.phone,
+                        profileImageUri = dataUri
+                    )
+                }
+
+                withContext(Dispatchers.Main) {
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    onError(e.message ?: "প্রোফাইল ছবি আপলোড ব্যর্থ হয়েছে")
+                }
+            }
+        }
+    }
+
+    fun removeUserProfileImage(onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            val current = currentUser.value
+            if (current != null) {
+                repository.updateCurrentUserProfile(
+                    name = current.username,
+                    phone = current.phone,
+                    profileImageUri = ""
+                )
+                onSuccess()
+            }
         }
     }
 

@@ -299,7 +299,8 @@ fun MainContainerScreen(
                     onNavigateToReports = { currentTab = BottomNavTab.REPORTS },
                     onNavigateToDailyReport = { currentTab = BottomNavTab.DAILY_REPORT },
                     onNavigateToExpense = { currentTab = BottomNavTab.EXPENSE },
-                    onOpenNotifications = { showFarmNotifications = true }
+                    onOpenNotifications = { showFarmNotifications = true },
+                    onNavigateToProfile = onNavigateToProfile
                 )
 
                 BottomNavTab.DAILY_REPORT -> DailyReportScreen(
@@ -308,7 +309,8 @@ fun MainContainerScreen(
                     onNavigateToEditReport = onNavigateToEditDailyReport,
                     onNavigateToDetail = onNavigateToDailyReportDetail,
                     onPreviewPdf = { list -> pdfPreviewDailyReports = list },
-                    onOpenNotifications = { showFarmNotifications = true }
+                    onOpenNotifications = { showFarmNotifications = true },
+                    onNavigateToProfile = onNavigateToProfile
                 )
 
                 BottomNavTab.EXPENSE -> MonthlyExpenseScreen(
@@ -317,12 +319,14 @@ fun MainContainerScreen(
                     onNavigateToEditExpense = onNavigateToEditExpense,
                     onNavigateToDetail = onNavigateToExpenseDetail,
                     onPreviewExpensePdf = { list -> pdfPreviewExpenses = list },
-                    onOpenNotifications = { showFarmNotifications = true }
+                    onOpenNotifications = { showFarmNotifications = true },
+                    onNavigateToProfile = onNavigateToProfile
                 )
 
                 BottomNavTab.REPORTS -> ReportsScreen(
                     viewModel = viewModel,
-                    onOpenNotifications = { showFarmNotifications = true }
+                    onOpenNotifications = { showFarmNotifications = true },
+                    onNavigateToProfile = onNavigateToProfile
                 )
 
                 BottomNavTab.SETTINGS -> SettingsScreen(

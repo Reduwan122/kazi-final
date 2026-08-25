@@ -587,3 +587,4 @@ private fun RecentActivityItem(report: DailyReportEntity) {
         }
     }
 }
+

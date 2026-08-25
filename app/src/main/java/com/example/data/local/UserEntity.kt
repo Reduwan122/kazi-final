@@ -23,6 +23,7 @@ data class UserEntity(
     val username: String = "",
     val email: String = "",
     val phone: String = "",
+    val profileImageUri: String = "",
     val role: String = "WORKER", // ADMIN, MANAGER, SUPERVISOR, WORKER
     @get:PropertyName("isApproved")
     @set:PropertyName("isApproved")

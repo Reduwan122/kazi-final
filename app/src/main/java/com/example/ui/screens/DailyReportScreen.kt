@@ -76,7 +76,8 @@ fun DailyReportScreen(
     onNavigateToEditReport: (Long) -> Unit,
     onNavigateToDetail: (Long) -> Unit,
     onPreviewPdf: (List<DailyReportEntity>) -> Unit,
-    onOpenNotifications: () -> Unit = {}
+    onOpenNotifications: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
@@ -144,8 +145,11 @@ fun DailyReportScreen(
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
                 logoEmoji = farmProfile.logoEmoji,
+                userProfileImageUri = currentUser?.profileImageUri ?: "",
+                username = currentUser?.username ?: "",
                 hasUnreadNotification = hasUnreadNotification,
-                onNotificationClick = onOpenNotifications
+                onNotificationClick = onOpenNotifications,
+                onProfileClick = onNavigateToProfile
             )
         },
         floatingActionButton = {

@@ -81,6 +81,7 @@ import coil.compose.AsyncImage
 import com.example.R
 import com.example.ui.components.FarmLogoDisplay
 import com.example.ui.components.MainTopAppBar
+import com.example.ui.components.UserProfileAvatar
 import com.example.ui.viewmodel.PoultryViewModel
 import androidx.compose.material3.SnackbarDuration
 import com.example.ui.components.SnackbarController
@@ -145,8 +146,11 @@ fun SettingsScreen(
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
                 logoEmoji = farmProfile.logoEmoji,
+                userProfileImageUri = currentUser?.profileImageUri ?: "",
+                username = currentUser?.username ?: "",
                 hasUnreadNotification = hasUnreadNotification,
-                onNotificationClick = onOpenNotifications
+                onNotificationClick = onOpenNotifications,
+                onProfileClick = onNavigateToProfile
             )
         }
     ) { innerPadding ->
@@ -181,15 +185,15 @@ fun SettingsScreen(
                     Box(
                         modifier = Modifier
                             .size(46.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
+                            .clip(CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = (currentUser?.username?.take(1) ?: "U").uppercase(),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
+                        UserProfileAvatar(
+                            profileImageUri = currentUser?.profileImageUri ?: "",
+                            username = currentUser?.username ?: "",
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
                         )
                     }
 

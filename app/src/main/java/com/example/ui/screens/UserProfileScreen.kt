@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,20 +22,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,11 +56,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.MainTopAppBar
+import com.example.ui.components.UserProfileAvatar
 import com.example.ui.viewmodel.PoultryViewModel
 import com.example.ui.components.SnackbarController
 import com.example.ui.components.rememberHaptics
@@ -63,12 +73,34 @@ fun UserProfileScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = rememberHaptics()
     val currentUser by viewModel.currentUser.collectAsState()
 
     var name by remember(currentUser) { mutableStateOf(currentUser?.username ?: "") }
     var phone by remember(currentUser) { mutableStateOf(currentUser?.phone ?: "") }
     var isSaving by remember { mutableStateOf(false) }
+    var isUploadingPhoto by remember { mutableStateOf(false) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            isUploadingPhoto = true
+            viewModel.uploadUserProfileImageFromUri(
+                context = context,
+                imageUri = uri,
+                onSuccess = {
+                    isUploadingPhoto = false
+                    SnackbarController.showMessage("প্রোফাইল ছবি সফলভাবে আপডেট হয়েছে!")
+                },
+                onError = { err ->
+                    isUploadingPhoto = false
+                    SnackbarController.showError("ছবি আপলোড ব্যর্থ: $err")
+                }
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -102,23 +134,103 @@ fun UserProfileScreen(
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Avatar with Camera Overlay
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(86.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
+                            .clickable { photoPickerLauncher.launch("image/*") }
+                            .testTag("btn_change_profile_photo"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = (currentUser?.username?.take(1) ?: "U").uppercase(),
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
+                        UserProfileAvatar(
+                            profileImageUri = currentUser?.profileImageUri ?: "",
+                            username = currentUser?.username ?: "",
+                            modifier = Modifier
+                                .size(86.dp)
+                                .clip(CircleShape)
                         )
+
+                        if (isUploadingPhoto) {
+                            Box(
+                                modifier = Modifier
+                                    .size(86.dp)
+                                    .background(Color.Black.copy(alpha = 0.45f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(28.dp),
+                                    strokeWidth = 3.dp
+                                )
+                            }
+                        } else {
+                            // Camera Overlay Badge
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = "Change Photo",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Photo Action Buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { photoPickerLauncher.launch("image/*") },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if ((currentUser?.profileImageUri ?: "").isNotBlank()) "ছবি পরিবর্তন" else "ছবি যোগ করুন",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        if ((currentUser?.profileImageUri ?: "").isNotBlank()) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.removeUserProfileImage {
+                                        SnackbarController.showMessage("প্রোফাইল ছবি সরানো হয়েছে")
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteOutline,
+                                    contentDescription = "Remove Photo",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
                         text = currentUser?.username ?: "ব্যবহারকারী",

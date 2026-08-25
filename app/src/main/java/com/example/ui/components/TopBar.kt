@@ -105,6 +105,62 @@ fun FarmLogoDisplay(
     }
 }
 
+@Composable
+fun UserProfileAvatar(
+    profileImageUri: String = "",
+    username: String = "",
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop
+) {
+    val context = LocalContext.current
+    val base64Bitmap = remember(profileImageUri) {
+        if (profileImageUri.isNotBlank() && (profileImageUri.startsWith("data:image") || profileImageUri.contains("base64,"))) {
+            try {
+                val cleanBase64 = if (profileImageUri.contains(",")) profileImageUri.substringAfter(",") else profileImageUri
+                val decodedBytes = Base64.decode(cleanBase64, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+    }
+
+    when {
+        base64Bitmap != null -> {
+            Image(
+                bitmap = base64Bitmap.asImageBitmap(),
+                contentDescription = "User Profile",
+                modifier = modifier,
+                contentScale = contentScale
+            )
+        }
+        profileImageUri.isNotBlank() -> {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(profileImageUri)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "User Profile",
+                modifier = modifier,
+                contentScale = contentScale
+            )
+        }
+        else -> {
+            Box(
+                modifier = modifier.background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = (username.trim().take(1).ifBlank { "U" }).uppercase(),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainTopAppBar(
@@ -112,9 +168,12 @@ fun MainTopAppBar(
     isRootScreen: Boolean = true,
     logoUri: String = "",
     logoEmoji: String = "",
+    userProfileImageUri: String = "",
+    username: String = "",
     hasUnreadNotification: Boolean = false,
     onBackClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
     onLogoClick: () -> Unit = {},
     actions: @Composable () -> Unit = {}
 ) {
@@ -172,29 +231,53 @@ fun MainTopAppBar(
         actions = {
             actions()
             if (isRootScreen) {
-                IconButton(
-                    onClick = onNotificationClick,
-                    modifier = Modifier
-                        .padding(end = 4.dp)
-                        .size(40.dp)
-                        .testTag("top_bar_notification_button")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 6.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (hasUnreadNotification) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .androidx.compose.foundation.layout.offset(x = 2.dp, y = (-2).dp)
-                                    .size(9.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.error)
+                    IconButton(
+                        onClick = onNotificationClick,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .testTag("top_bar_notification_button")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Notifications",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (hasUnreadNotification) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .androidx.compose.foundation.layout.offset(x = 2.dp, y = (-2).dp)
+                                        .size(9.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.error)
+                                )
+                            }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .clickable { onProfileClick() }
+                            .testTag("top_bar_profile_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        UserProfileAvatar(
+                            profileImageUri = userProfileImageUri,
+                            username = username,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                        )
                     }
                 }
             }

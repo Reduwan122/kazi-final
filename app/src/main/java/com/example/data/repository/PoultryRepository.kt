@@ -591,10 +591,18 @@ class PoultryRepository(
         }
     }
 
-    suspend fun updateCurrentUserProfile(name: String, phone: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun updateCurrentUserProfile(
+        name: String,
+        phone: String,
+        profileImageUri: String? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         val current = _currentUser.value ?: return@withContext Result.failure(Exception("কোনো ইউজার লগইন নেই"))
         try {
-            val updated = current.copy(username = name.trim(), phone = phone.trim())
+            val updated = current.copy(
+                username = name.trim(),
+                phone = phone.trim(),
+                profileImageUri = profileImageUri ?: current.profileImageUri
+            )
             _currentUser.value = updated
             if (current.id.isNotBlank()) {
                 dbRef?.child("users")?.child(current.id)?.setValue(updated)?.await()

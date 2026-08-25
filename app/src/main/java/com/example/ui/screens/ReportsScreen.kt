@@ -78,7 +78,8 @@ enum class ReportCategory(val title: String, val icon: androidx.compose.ui.graph
 @Composable
 fun ReportsScreen(
     viewModel: PoultryViewModel,
-    onOpenNotifications: () -> Unit = {}
+    onOpenNotifications: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
@@ -137,8 +138,11 @@ fun ReportsScreen(
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
                 logoEmoji = farmProfile.logoEmoji,
+                userProfileImageUri = currentUser?.profileImageUri ?: "",
+                username = currentUser?.username ?: "",
                 hasUnreadNotification = hasUnreadNotification,
-                onNotificationClick = onOpenNotifications
+                onNotificationClick = onOpenNotifications,
+                onProfileClick = onNavigateToProfile
             )
         }
     ) { innerPadding ->
