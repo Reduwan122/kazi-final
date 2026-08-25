@@ -69,14 +69,20 @@ fun MonthlyExpenseScreen(
     onNavigateToAddExpense: () -> Unit,
     onNavigateToEditExpense: (Long) -> Unit,
     onNavigateToDetail: (Long) -> Unit,
-    onPreviewExpensePdf: (List<MonthlyExpenseEntity>) -> Unit
+    onPreviewExpensePdf: (List<MonthlyExpenseEntity>) -> Unit,
+    onOpenNotifications: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
     val expenses by viewModel.expenses.collectAsState()
+    val dailyReports by viewModel.dailyReports.collectAsState()
     val farmProfile by viewModel.farmProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
+
+    val todayDate = remember { BanglaNumberFormatter.getCurrentDateFormatted() }
+    val hasTodayReport = remember(dailyReports, todayDate) { dailyReports.any { it.date == todayDate } }
+    val hasUnreadNotification = !hasTodayReport
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
     val canViewExpense = currentUser?.canViewExpense(userPerms) ?: false
@@ -136,7 +142,9 @@ fun MonthlyExpenseScreen(
                 title = "মাসিক ব্যয়",
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
-                logoEmoji = farmProfile.logoEmoji
+                logoEmoji = farmProfile.logoEmoji,
+                hasUnreadNotification = hasUnreadNotification,
+                onNotificationClick = onOpenNotifications
             )
         },
         floatingActionButton = {

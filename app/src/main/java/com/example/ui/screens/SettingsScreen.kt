@@ -92,6 +92,7 @@ fun SettingsScreen(
     onNavigateToAdmin: () -> Unit = {},
     onNavigateToRolePermissions: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
@@ -100,6 +101,11 @@ fun SettingsScreen(
     val syncStatus by viewModel.syncStatus.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val allUsers by viewModel.allUsers.collectAsState()
+    val dailyReports by viewModel.dailyReports.collectAsState()
+
+    val todayDate = remember { BanglaNumberFormatter.getCurrentDateFormatted() }
+    val hasTodayReport = remember(dailyReports, todayDate) { dailyReports.any { it.date == todayDate } }
+    val hasUnreadNotification = !hasTodayReport
 
     val isAdmin = currentUser?.isAdmin() == true
     val pendingCount = allUsers.count { !it.isApproved && !it.isAdmin() }
@@ -138,7 +144,9 @@ fun SettingsScreen(
                 title = "সেটিংস",
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
-                logoEmoji = farmProfile.logoEmoji
+                logoEmoji = farmProfile.logoEmoji,
+                hasUnreadNotification = hasUnreadNotification,
+                onNotificationClick = onOpenNotifications
             )
         }
     ) { innerPadding ->

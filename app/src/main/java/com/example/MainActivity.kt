@@ -29,6 +29,7 @@ import com.example.data.local.MonthlyExpenseEntity
 import com.example.ui.components.AppBottomNavBar
 import com.example.ui.components.AppSnackbarHost
 import com.example.ui.components.BottomNavTab
+import com.example.ui.components.FarmNotificationDialog
 import com.example.ui.components.PdfPreviewModalDialog
 import com.example.ui.components.SnackbarBottomInset
 import com.example.ui.screens.AddEditDailyReportScreen
@@ -261,6 +262,7 @@ fun MainContainerScreen(
     onLogout: () -> Unit
 ) {
     var currentTab by remember { mutableStateOf(BottomNavTab.DASHBOARD) }
+    var showFarmNotifications by remember { mutableStateOf(false) }
     var pdfPreviewDailyReports by remember { mutableStateOf<List<DailyReportEntity>?>(null) }
     var pdfPreviewExpenses by remember { mutableStateOf<List<MonthlyExpenseEntity>?>(null) }
     val farmProfile by viewModel.farmProfile.collectAsState()
@@ -296,7 +298,8 @@ fun MainContainerScreen(
                     onNavigateToAddExpense = onNavigateToAddExpense,
                     onNavigateToReports = { currentTab = BottomNavTab.REPORTS },
                     onNavigateToDailyReport = { currentTab = BottomNavTab.DAILY_REPORT },
-                    onNavigateToExpense = { currentTab = BottomNavTab.EXPENSE }
+                    onNavigateToExpense = { currentTab = BottomNavTab.EXPENSE },
+                    onOpenNotifications = { showFarmNotifications = true }
                 )
 
                 BottomNavTab.DAILY_REPORT -> DailyReportScreen(
@@ -304,7 +307,8 @@ fun MainContainerScreen(
                     onNavigateToAddReport = onNavigateToAddDailyReport,
                     onNavigateToEditReport = onNavigateToEditDailyReport,
                     onNavigateToDetail = onNavigateToDailyReportDetail,
-                    onPreviewPdf = { list -> pdfPreviewDailyReports = list }
+                    onPreviewPdf = { list -> pdfPreviewDailyReports = list },
+                    onOpenNotifications = { showFarmNotifications = true }
                 )
 
                 BottomNavTab.EXPENSE -> MonthlyExpenseScreen(
@@ -312,11 +316,13 @@ fun MainContainerScreen(
                     onNavigateToAddExpense = onNavigateToAddExpense,
                     onNavigateToEditExpense = onNavigateToEditExpense,
                     onNavigateToDetail = onNavigateToExpenseDetail,
-                    onPreviewExpensePdf = { list -> pdfPreviewExpenses = list }
+                    onPreviewExpensePdf = { list -> pdfPreviewExpenses = list },
+                    onOpenNotifications = { showFarmNotifications = true }
                 )
 
                 BottomNavTab.REPORTS -> ReportsScreen(
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    onOpenNotifications = { showFarmNotifications = true }
                 )
 
                 BottomNavTab.SETTINGS -> SettingsScreen(
@@ -324,7 +330,17 @@ fun MainContainerScreen(
                     onNavigateToAdmin = onNavigateToAdmin,
                     onNavigateToRolePermissions = onNavigateToRolePermissions,
                     onNavigateToProfile = onNavigateToProfile,
+                    onOpenNotifications = { showFarmNotifications = true },
                     onLogout = onLogout
+                )
+            }
+
+            if (showFarmNotifications) {
+                FarmNotificationDialog(
+                    viewModel = viewModel,
+                    onDismiss = { showFarmNotifications = false },
+                    onNavigateToAddDailyReport = onNavigateToAddDailyReport,
+                    onNavigateToDailyReportList = { currentTab = BottomNavTab.DAILY_REPORT }
                 )
             }
 

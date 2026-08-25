@@ -56,7 +56,8 @@ fun DashboardScreen(
     onNavigateToAddExpense: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToDailyReport: () -> Unit,
-    onNavigateToExpense: () -> Unit
+    onNavigateToExpense: () -> Unit,
+    onOpenNotifications: () -> Unit = {}
 ) {
     val haptics = rememberHaptics()
     val dailyReports by viewModel.dailyReports.collectAsState()
@@ -65,6 +66,10 @@ fun DashboardScreen(
     val farmProfile by viewModel.farmProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
+
+    val todayDate = remember { BanglaNumberFormatter.getCurrentDateFormatted() }
+    val hasTodayReport = remember(dailyReports, todayDate) { dailyReports.any { it.date == todayDate } }
+    val hasUnreadNotification = !hasTodayReport
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
     val canAddReport = currentUser?.canAddReport(userPerms) == true
@@ -75,7 +80,9 @@ fun DashboardScreen(
                 title = farmProfile.farmName,
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
-                logoEmoji = farmProfile.logoEmoji
+                logoEmoji = farmProfile.logoEmoji,
+                hasUnreadNotification = hasUnreadNotification,
+                onNotificationClick = onOpenNotifications
             )
         },
         floatingActionButton = {

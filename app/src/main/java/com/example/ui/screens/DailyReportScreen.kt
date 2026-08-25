@@ -75,7 +75,8 @@ fun DailyReportScreen(
     onNavigateToAddReport: () -> Unit,
     onNavigateToEditReport: (Long) -> Unit,
     onNavigateToDetail: (Long) -> Unit,
-    onPreviewPdf: (List<DailyReportEntity>) -> Unit
+    onPreviewPdf: (List<DailyReportEntity>) -> Unit,
+    onOpenNotifications: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
@@ -83,6 +84,10 @@ fun DailyReportScreen(
     val farmProfile by viewModel.farmProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
+
+    val todayDate = remember { BanglaNumberFormatter.getCurrentDateFormatted() }
+    val hasTodayReport = remember(dailyReports, todayDate) { dailyReports.any { it.date == todayDate } }
+    val hasUnreadNotification = !hasTodayReport
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
     val canViewReport = currentUser?.canViewReport(userPerms) ?: false
@@ -138,7 +143,9 @@ fun DailyReportScreen(
                 title = "দৈনিক রিপোর্ট",
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
-                logoEmoji = farmProfile.logoEmoji
+                logoEmoji = farmProfile.logoEmoji,
+                hasUnreadNotification = hasUnreadNotification,
+                onNotificationClick = onOpenNotifications
             )
         },
         floatingActionButton = {

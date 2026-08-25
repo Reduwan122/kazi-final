@@ -112,6 +112,7 @@ fun MainTopAppBar(
     isRootScreen: Boolean = true,
     logoUri: String = "",
     logoEmoji: String = "",
+    hasUnreadNotification: Boolean = false,
     onBackClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onLogoClick: () -> Unit = {},
@@ -176,12 +177,25 @@ fun MainTopAppBar(
                     modifier = Modifier
                         .padding(end = 4.dp)
                         .size(40.dp)
+                        .testTag("top_bar_notification_button")
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Notifications",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (hasUnreadNotification) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .androidx.compose.foundation.layout.offset(x = 2.dp, y = (-2).dp)
+                                    .size(9.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.error)
+                            )
+                        }
+                    }
                 }
             }
         },

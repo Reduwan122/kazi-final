@@ -77,7 +77,8 @@ enum class ReportCategory(val title: String, val icon: androidx.compose.ui.graph
 
 @Composable
 fun ReportsScreen(
-    viewModel: PoultryViewModel
+    viewModel: PoultryViewModel,
+    onOpenNotifications: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
@@ -86,6 +87,10 @@ fun ReportsScreen(
     val farmProfile by viewModel.farmProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
+
+    val todayDate = remember { BanglaNumberFormatter.getCurrentDateFormatted() }
+    val hasTodayReport = remember(dailyReports, todayDate) { dailyReports.any { it.date == todayDate } }
+    val hasUnreadNotification = !hasTodayReport
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
     val canViewReports = currentUser?.canViewReportsAndAnalytics(userPerms) ?: false
@@ -131,7 +136,9 @@ fun ReportsScreen(
                 title = "রিপোর্ট ও বিশ্লেষণ",
                 isRootScreen = true,
                 logoUri = farmProfile.logoUri,
-                logoEmoji = farmProfile.logoEmoji
+                logoEmoji = farmProfile.logoEmoji,
+                hasUnreadNotification = hasUnreadNotification,
+                onNotificationClick = onOpenNotifications
             )
         }
     ) { innerPadding ->
