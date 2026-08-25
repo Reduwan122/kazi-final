@@ -6,9 +6,20 @@ on:
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type (debug / release / both)'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - 'both'
+          - 'debug'
+          - 'release'
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
@@ -29,10 +40,25 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Debug APK
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' }}
         run: ./gradlew assembleDebug --stacktrace --no-daemon
 
+      - name: Build Release APK
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both' }}
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
+
       - name: Upload Debug APK
+        if: ${{ always() && (github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both') }}
         uses: actions/upload-artifact@v4
         with:
-          name: kazi-agrotech-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: kazi-agrotech-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - name: Upload Release APK
+        if: ${{ always() && (github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kazi-agrotech-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 14
