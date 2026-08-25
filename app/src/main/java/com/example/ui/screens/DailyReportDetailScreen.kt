@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.DailyReportEntity
 import com.example.ui.components.BanglaNumberFormatter
+import com.example.ui.components.DailyReportShareDialog
 import com.example.ui.components.DetailAction
 import com.example.ui.components.DetailActionBar
 import com.example.ui.components.DetailActionTone
@@ -76,8 +77,10 @@ fun DailyReportDetailScreen(
     val dailyReports by viewModel.dailyReports.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
+    val farmProfile by viewModel.farmProfile.collectAsState()
     val report = dailyReports.find { it.id == reportId }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showShareCardDialog by remember { mutableStateOf(false) }
 
     // Resolve against the configured role permissions, exactly as the list screen does, so the
     // same user never sees an action here that the list hides.
@@ -104,22 +107,8 @@ fun DailyReportDetailScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            val shareText = "কাজী এগ্রোটেক - দৈনিক রিপোর্ট\n" +
-                                    "তারিখ: ${BanglaNumberFormatter.formatBanglaDate(report.date)}\n" +
-                                    "মুরগি: ${BanglaNumberFormatter.formatNumber(report.currentBirds)} টি (মৃত: ${BanglaNumberFormatter.formatNumber(report.deadBirds)})\n" +
-                                    "ডিম উৎপাদন: ${BanglaNumberFormatter.formatNumber(report.eggProduction)} টি\n" +
-                                    "বিক্রয়: ${BanglaNumberFormatter.formatNumber(report.eggSold)} টি (দর: ${BanglaNumberFormatter.formatDecimal(report.eggPrice)} ৳)\n" +
-                                    "মোট বিক্রয়: ${BanglaNumberFormatter.formatCurrency(report.totalSale)}\n" +
-                                    "ঔষধ খরচ: ${BanglaNumberFormatter.formatCurrency(report.medicineCost)}\n" +
-                                    "স্টক: ${BanglaNumberFormatter.formatNumber(report.currentStock)} টি\n" +
-                                    "মন্তব্য: ${report.remarks}"
-
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                                type = "text/plain"
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, "রিপোর্ট শেয়ার করুন"))
+                            haptics.tap()
+                            showShareCardDialog = true
                         }
                     ) {
                         Icon(
@@ -414,6 +403,14 @@ fun DailyReportDetailScreen(
 
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
+
+    if (showShareCardDialog) {
+        DailyReportShareDialog(
+            report = report,
+            farmProfile = farmProfile,
+            onDismiss = { showShareCardDialog = false }
+        )
     }
 
     if (showDeleteConfirm) {

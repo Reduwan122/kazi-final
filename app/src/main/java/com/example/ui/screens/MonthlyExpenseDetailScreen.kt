@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.MonthlyExpenseEntity
 import com.example.ui.components.BanglaNumberFormatter
+import com.example.ui.components.MonthlyExpenseShareDialog
 import com.example.ui.components.DetailAction
 import com.example.ui.components.DetailActionBar
 import com.example.ui.components.DetailActionTone
@@ -83,10 +84,12 @@ fun MonthlyExpenseDetailScreen(
     val context = LocalContext.current
     val haptics = rememberHaptics()
     val expenses by viewModel.expenses.collectAsState()
+    val farmProfile by viewModel.farmProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
     val expense = expenses.find { it.id == expenseId }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showShareCardDialog by remember { mutableStateOf(false) }
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
     val canEdit = currentUser?.canEditExpense(userPerms) ?: false
@@ -122,22 +125,8 @@ fun MonthlyExpenseDetailScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            val shareText = buildString {
-                                append("কাজী এগ্রোটেক - মাসিক ব্যয়\n")
-                                append("তারিখ: ${BanglaNumberFormatter.formatBanglaDate(expense.date)}\n")
-                                breakdown.forEach { line ->
-                                    append("${line.label}: ${BanglaNumberFormatter.formatCurrency(line.amount)}\n")
-                                }
-                                append("সর্বমোট ব্যয়: ${BanglaNumberFormatter.formatCurrency(expense.totalExpense)}\n")
-                                append("মন্তব্য: ${expense.remarks}")
-                            }
-
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                                type = "text/plain"
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, "ব্যয় বিবরণ শেয়ার করুন"))
+                            haptics.tap()
+                            showShareCardDialog = true
                         }
                     ) {
                         Icon(
@@ -343,6 +332,14 @@ fun MonthlyExpenseDetailScreen(
 
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
+
+    if (showShareCardDialog) {
+        MonthlyExpenseShareDialog(
+            expense = expense,
+            farmProfile = farmProfile,
+            onDismiss = { showShareCardDialog = false }
+        )
     }
 
     if (showDeleteConfirm) {

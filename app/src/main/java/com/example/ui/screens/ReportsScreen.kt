@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Egg
 import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.TableView
 import androidx.compose.material3.Button
@@ -58,6 +59,7 @@ import com.example.data.local.DailyReportEntity
 import com.example.data.local.MonthlyExpenseEntity
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
+import com.example.ui.components.MonthlySummaryShareDialog
 import com.example.ui.components.PdfPreviewModalDialog
 import com.example.ui.components.rememberHaptics
 import com.example.ui.components.scaleClickable
@@ -93,6 +95,7 @@ fun ReportsScreen(
     var monthDropdownExpanded by remember { mutableStateOf(false) }
 
     var showPdfPreviewModal by remember { mutableStateOf(false) }
+    var showShareCardModal by remember { mutableStateOf(false) }
 
     // Months that actually have data (from either reports or expenses), plus the current month, newest first
     val availableMonths = remember(dailyReports, expenses) {
@@ -113,7 +116,11 @@ fun ReportsScreen(
     }
 
     val totalProduction = filteredDaily.sumOf { it.eggProduction }
+    val totalSold = filteredDaily.sumOf { it.eggSold }
     val totalSale = filteredDaily.sumOf { it.totalSale }
+    val totalMedicine = filteredDaily.sumOf { it.medicineCost }
+    val totalMortality = filteredDaily.sumOf { it.deadBirds }
+    val currentBirds = filteredDaily.lastOrNull()?.currentBirds ?: 0
     val totalExpense = filteredExpenses.sumOf { it.totalExpense }
     val netProfit = totalSale - totalExpense
 
@@ -212,15 +219,28 @@ fun ReportsScreen(
                             Button(
                                 onClick = {
                                     haptics.tap()
-                                    showPdfPreviewModal = true
+                                    showShareCardModal = true
                                 },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_share_card")
+                            ) {
+                                Icon(imageVector = Icons.Default.Share, contentDescription = "Share Card", modifier = Modifier.size(17.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("কার্ড শেয়ার", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    haptics.tap()
+                                    showPdfPreviewModal = true
+                                },
+                                shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_pdf")
                             ) {
-                                Icon(imageVector = Icons.Default.PictureAsPdf, contentDescription = "PDF", modifier = Modifier.size(18.dp))
+                                Icon(imageVector = Icons.Default.PictureAsPdf, contentDescription = "PDF", modifier = Modifier.size(17.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("পিডিএফ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("পিডিএফ", fontSize = 12.sp)
                             }
 
                             OutlinedButton(
@@ -235,7 +255,7 @@ fun ReportsScreen(
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_excel")
                             ) {
-                                Icon(imageVector = Icons.Default.TableView, contentDescription = "Excel", modifier = Modifier.size(18.dp))
+                                Icon(imageVector = Icons.Default.TableView, contentDescription = "Excel", modifier = Modifier.size(17.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("এক্সেল", fontSize = 12.sp)
                             }
@@ -336,6 +356,27 @@ fun ReportsScreen(
 
             Spacer(modifier = Modifier.height(72.dp))
         }
+    }
+
+    if (showShareCardModal) {
+        val monthLabel = if (selectedMonthFilter == "সকল রেকর্ড") {
+            "সকল রেকর্ড সারাংশ"
+        } else {
+            BanglaNumberFormatter.formatYearMonth(selectedMonthFilter)
+        }
+
+        MonthlySummaryShareDialog(
+            monthLabel = monthLabel,
+            totalBirds = currentBirds,
+            totalProduction = totalProduction,
+            totalSold = totalSold,
+            totalSale = totalSale,
+            totalMedicine = totalMedicine,
+            totalExpense = totalExpense,
+            totalMortality = totalMortality,
+            farmProfile = farmProfile,
+            onDismiss = { showShareCardModal = false }
+        )
     }
 
     if (showPdfPreviewModal) {

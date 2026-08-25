@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.DailyReportEntity
 import com.example.ui.components.BanglaNumberFormatter
+import com.example.ui.components.DailyReportShareDialog
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.components.RowActionBottomSheetDialog
 import com.example.ui.viewmodel.PoultryViewModel
@@ -95,6 +96,7 @@ fun DailyReportScreen(
 
     var selectedReportForAction by remember { mutableStateOf<DailyReportEntity?>(null) }
     var showActionDialog by remember { mutableStateOf(false) }
+    var shareCardReport by remember { mutableStateOf<DailyReportEntity?>(null) }
 
     // Months that actually have data, plus the current month, newest first
     val availableMonths = remember(dailyReports) {
@@ -585,6 +587,7 @@ fun DailyReportScreen(
             title = "রিপোর্ট: ${BanglaNumberFormatter.formatBanglaDate(report.date)}",
             onDismiss = { showActionDialog = false },
             onView = { onNavigateToDetail(report.id) },
+            onShare = { shareCardReport = report },
             onEdit = { onNavigateToEditReport(report.id) },
             onDelete = {
                 haptics.confirm()
@@ -592,6 +595,14 @@ fun DailyReportScreen(
             },
             canEdit = canEditReport,
             canDelete = canDeleteReport
+        )
+    }
+
+    if (shareCardReport != null) {
+        DailyReportShareDialog(
+            report = shareCardReport!!,
+            farmProfile = farmProfile,
+            onDismiss = { shareCardReport = null }
         )
     }
 }

@@ -30,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.material.icons.filled.Share
+
 @Composable
 fun RowActionBottomSheetDialog(
     title: String,
@@ -37,6 +39,7 @@ fun RowActionBottomSheetDialog(
     onView: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onShare: (() -> Unit)? = null,
     canEdit: Boolean = true,
     canDelete: Boolean = true
 ) {
@@ -79,6 +82,37 @@ fun RowActionBottomSheetDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     )
+                }
+
+                if (onShare != null) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onDismiss()
+                                onShare()
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp)
+                            .testTag("action_share"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share Card",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "কার্ড শেয়ার করুন",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                    }
                 }
 
                 if (canEdit) {

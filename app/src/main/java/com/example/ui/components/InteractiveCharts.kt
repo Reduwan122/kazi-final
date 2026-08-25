@@ -60,6 +60,19 @@ enum class ChartType(val title: String) {
     EXPENSE_TREND("দৈনিক ব্যয়")
 }
 
+/**
+ * One bar of [ProductionChartCard].
+ *
+ * [barValue] is scaled for drawing (sales in thousands, expense in hundreds) so all three chart
+ * types share one bar height range. [readout] is the real figure, already formatted with its unit,
+ * because the tapped-bar label must show what the record actually holds — not the scaled height.
+ */
+private data class ChartEntry(
+    val dateLabel: String,
+    val barValue: Float,
+    val readout: String
+)
+
 @Composable
 fun ProductionChartCard(
     reports: List<DailyReportEntity>,
@@ -71,24 +84,30 @@ fun ProductionChartCard(
 
     // Take last 7 days in chronological order
     val chartData = remember(reports, selectedChartType) {
-        val sorted = reports.sortedBy { it.date }.takeLast(7)
-        if (sorted.isEmpty()) {
-            emptyList()
-        } else {
-            sorted.map { r ->
-                val dateLabel = BanglaNumberFormatter.formatShortDate(r.date).take(5)
-                val value = when (selectedChartType) {
-                    ChartType.EGG_PRODUCTION -> r.eggProduction.toFloat()
-                    ChartType.DAILY_SALES -> (r.totalSale / 1000).toFloat() // in thousands
-                    ChartType.EXPENSE_TREND -> (r.medicineCost / 100).toFloat()
-                }
-                Pair(dateLabel, value)
+        reports.sortedBy { it.date }.takeLast(7).map { r ->
+            val dateLabel = BanglaNumberFormatter.formatShortDate(r.date).take(5)
+            when (selectedChartType) {
+                ChartType.EGG_PRODUCTION -> ChartEntry(
+                    dateLabel = dateLabel,
+                    barValue = r.eggProduction.toFloat(),
+                    readout = "${BanglaNumberFormatter.formatNumber(r.eggProduction)} টি"
+                )
+                ChartType.DAILY_SALES -> ChartEntry(
+                    dateLabel = dateLabel,
+                    barValue = (r.totalSale / 1000).toFloat(), // in thousands
+                    readout = BanglaNumberFormatter.formatCurrency(r.totalSale)
+                )
+                ChartType.EXPENSE_TREND -> ChartEntry(
+                    dateLabel = dateLabel,
+                    barValue = (r.medicineCost / 100).toFloat(), // in hundreds
+                    readout = BanglaNumberFormatter.formatCurrency(r.medicineCost)
+                )
             }
         }
     }
 
     val maxVal = remember(chartData) {
-        max(chartData.maxOfOrNull { it.second } ?: 100f, 10f)
+        max(chartData.maxOfOrNull { it.barValue } ?: 100f, 10f)
     }
 
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -198,7 +217,6 @@ fun ProductionChartCard(
                             .height(115.dp)
                             .pointerInput(chartData) {
                                 detectTapGestures { offset ->
-                                    val barWidth = size.width / (chartData.size * 2)
                                     val spacing = size.width / chartData.size
                                     val index = (offset.x / spacing).toInt()
                                     selectedIndex = if (index in chartData.indices) index else -1
@@ -212,7 +230,7 @@ fun ProductionChartCard(
 
                             for (i in 0 until count) {
                                 val item = chartData[i]
-                                val ratio = (item.second / maxVal) * animationProgress.value
+                                val ratio = (item.barValue / maxVal) * animationProgress.value
                                 val barHeight = size.height * ratio.coerceIn(0.1f, 1f)
                                 val x = i * slotWidth + (slotWidth - barWidth) / 2
                                 val y = size.height - barHeight
@@ -248,9 +266,9 @@ fun ProductionChartCard(
                             .align(Alignment.BottomCenter),
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
-                        chartData.forEachIndexed { index, pair ->
+                        chartData.forEachIndexed { index, entry ->
                             Text(
-                                text = pair.first,
+                                text = entry.dateLabel,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedIndex == index) FontWeight.Bold else FontWeight.Normal,
@@ -274,14 +292,14 @@ fun ProductionChartCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "তারিখ: ${selected.first}",
+                        text = "তারিখ: ${selected.dateLabel}",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Medium,
                             color = primaryColor
                         )
                     )
                     Text(
-                        text = "পরিমাণ: ${BanglaNumberFormatter.formatNumber(selected.second.toInt())}",
+                        text = "পরিমাণ: ${selected.readout}",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = primaryColor

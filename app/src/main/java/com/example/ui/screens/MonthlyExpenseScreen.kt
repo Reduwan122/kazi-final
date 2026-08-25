@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.MonthlyExpenseEntity
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
+import com.example.ui.components.MonthlyExpenseShareDialog
 import com.example.ui.components.RowActionBottomSheetDialog
 import com.example.ui.viewmodel.PoultryViewModel
 import com.example.ui.components.rememberHaptics
@@ -89,6 +90,7 @@ fun MonthlyExpenseScreen(
 
     var selectedExpenseForAction by remember { mutableStateOf<MonthlyExpenseEntity?>(null) }
     var showActionDialog by remember { mutableStateOf(false) }
+    var shareCardExpense by remember { mutableStateOf<MonthlyExpenseEntity?>(null) }
 
     // Months that actually have data, plus the current month, newest first
     val availableMonths = remember(expenses) {
@@ -598,6 +600,7 @@ fun MonthlyExpenseScreen(
             title = "ব্যয়: ${BanglaNumberFormatter.formatBanglaDate(exp.date)}",
             onDismiss = { showActionDialog = false },
             onView = { onNavigateToDetail(exp.id) },
+            onShare = { shareCardExpense = exp },
             onEdit = { onNavigateToEditExpense(exp.id) },
             onDelete = {
                 haptics.confirm()
@@ -605,6 +608,14 @@ fun MonthlyExpenseScreen(
             },
             canEdit = canEditExpense,
             canDelete = canDeleteExpense
+        )
+    }
+
+    if (shareCardExpense != null) {
+        MonthlyExpenseShareDialog(
+            expense = shareCardExpense!!,
+            farmProfile = farmProfile,
+            onDismiss = { shareCardExpense = null }
         )
     }
 }
