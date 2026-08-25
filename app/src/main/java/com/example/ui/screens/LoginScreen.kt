@@ -375,7 +375,7 @@ fun LoginScreen(
                         },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        placeholder = { Text("কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড") },
+                        placeholder = { Text(if (selectedTab == 1) "শক্তিশালী পাসওয়ার্ড দিন" else "পাসওয়ার্ড লিখুন") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -386,6 +386,12 @@ fun LoginScreen(
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline
                         )
                     )
+
+                    // Password Strength Indicator (Only for Sign Up)
+                    if (selectedTab == 1) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        com.example.ui.components.PasswordStrengthIndicator(password = password)
+                    }
                 }
 
                 // Confirm Password Field (Only for Sign Up)
@@ -476,8 +482,9 @@ fun LoginScreen(
                             return@Button
                         }
                         if (selectedTab == 1) {
-                            if (password.length < 6) {
-                                errorMessage = "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।"
+                            val strength = com.example.ui.components.PasswordStrength.validate(password)
+                            if (!strength.isStrong) {
+                                errorMessage = "অনুগ্রহ করে একটি শক্তিশালী পাসওয়ার্ড তৈরি করুন (কমপক্ষে ৮ অক্ষর, বড় ও ছোট অক্ষর, সংখ্যা এবং স্পেশাল ক্যারেক্টার আবশ্যক)।"
                                 return@Button
                             }
                             if (password != confirmPassword) {

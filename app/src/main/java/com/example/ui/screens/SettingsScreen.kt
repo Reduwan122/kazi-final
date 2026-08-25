@@ -971,22 +971,39 @@ fun SettingsScreen(
 
         AlertDialog(
             onDismissRequest = { showChangePasswordDialog = false },
-            title = { Text("পাসওয়ার্ড পরিবর্তন") },
+            title = { Text("পাসওয়ার্ড পরিবর্তন", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (errorMsg.isNotEmpty()) {
-                        Text(text = errorMsg, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        Text(
+                            text = errorMsg,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                     OutlinedTextField(
                         value = newPass,
-                        onValueChange = { newPass = it },
-                        label = { Text("নতুন পাসওয়ার্ড") },
+                        onValueChange = {
+                            newPass = it
+                            errorMsg = ""
+                        },
+                        label = { Text("নতুন শক্তিশালী পাসওয়ার্ড") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    com.example.ui.components.PasswordStrengthIndicator(password = newPass)
+
                     OutlinedTextField(
                         value = confirmPass,
-                        onValueChange = { confirmPass = it },
+                        onValueChange = {
+                            confirmPass = it
+                            errorMsg = ""
+                        },
                         label = { Text("নতুন পাসওয়ার্ড পুনরায় লিখুন") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -997,8 +1014,9 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         haptics.tap()
-                        if (newPass.length < 6) {
-                            errorMsg = "পাসওয়ার্ড ন্যূনতম ৬ অক্ষরের হতে হবে।"
+                        val strength = com.example.ui.components.PasswordStrength.validate(newPass)
+                        if (!strength.isStrong) {
+                            errorMsg = "অনুগ্রহ করে একটি শক্তিশালী পাসওয়ার্ড প্রদান করুন (কমপক্ষে ৮ অক্ষর, বড় ও ছোট অক্ষর, সংখ্যা ও স্পেশাল চিহ্ন)।"
                         } else if (newPass != confirmPass) {
                             errorMsg = "উভয় পাসওয়ার্ড মিলছে না।"
                         } else {
