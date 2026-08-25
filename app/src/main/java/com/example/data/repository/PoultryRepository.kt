@@ -313,17 +313,42 @@ class PoultryRepository(
                     val userList = mutableListOf<UserEntity>()
                     if (snapshot.exists() && snapshot.hasChildren()) {
                         for (child in snapshot.children) {
-                            val user = child.getValue(UserEntity::class.java)
-                            if (user != null) {
-                                userList.add(user)
+                            try {
+                                var user = child.getValue(UserEntity::class.java)
+                                if (user == null || user.id.isBlank()) {
+                                    val id = child.key ?: child.child("id").getValue(String::class.java) ?: ""
+                                    val username = child.child("username").getValue(String::class.java) ?: ""
+                                    val email = child.child("email").getValue(String::class.java) ?: ""
+                                    val phone = child.child("phone").getValue(String::class.java) ?: ""
+                                    val role = child.child("role").getValue(String::class.java) ?: "WORKER"
+                                    val isApproved = child.child("isApproved").getValue(Boolean::class.java)
+                                        ?: child.child("approved").getValue(Boolean::class.java)
+                                        ?: false
+                                    val profileImageUri = child.child("profileImageUri").getValue(String::class.java) ?: ""
+                                    val regDate = child.child("registeredDate").getValue(Long::class.java) ?: System.currentTimeMillis()
+                                    if (id.isNotBlank() || email.isNotBlank()) {
+                                        user = UserEntity(
+                                            id = id,
+                                            username = username,
+                                            email = email,
+                                            phone = phone,
+                                            profileImageUri = profileImageUri,
+                                            role = role,
+                                            isApproved = isApproved,
+                                            registeredDate = regDate,
+                                            isLoggedIn = true
+                                        )
+                                    }
+                                }
+                                if (user != null && user.id.isNotBlank()) {
+                                    userList.add(user)
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Error parsing user child node: ${e.message}")
                             }
                         }
                     }
                     latestRawUsers = userList
-                    // Never surface a blocked (deleted) user in the admin
-                    // list, even if their profile record wasn't fully
-                    // removed yet (e.g. a partial delete due to a dropped
-                    // connection).
                     recomputeVisibleUsers()
 
                     // Update current user if in list
@@ -542,8 +567,26 @@ class PoultryRepository(
                 isLoggedIn = true
             )
 
+            val userMap = mapOf(
+                "id" to user.uid,
+                "username" to userEntity.username,
+                "email" to userEntity.email,
+                "phone" to userEntity.phone,
+                "role" to userEntity.role,
+                "isApproved" to userEntity.isApproved,
+                "approved" to userEntity.isApproved,
+                "profileImageUri" to userEntity.profileImageUri,
+                "registeredDate" to userEntity.registeredDate,
+                "rememberLogin" to true,
+                "isLoggedIn" to true
+            )
+
             // Save to users database
-            dbRef?.child("users")?.child(user.uid)?.setValue(userEntity)?.await()
+            dbRef?.child("users")?.child(user.uid)?.setValue(userMap)?.await()
+
+            // Update local user state immediately
+            latestRawUsers = (latestRawUsers.filterNot { it.id == userEntity.id } + userEntity)
+            recomputeVisibleUsers()
 
             _currentUser.value = userEntity
             Result.success(userEntity)

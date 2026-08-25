@@ -101,41 +101,7 @@ fun AdminUserManagementScreen(
     val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
 
     // Base user dataset
-    val displayUsers = remember(allUsers) {
-        if (allUsers.isEmpty()) {
-            listOf(
-                UserEntity(
-                    id = "sample_1",
-                    username = "আহমেদ কবির",
-                    phone = "01711-223344",
-                    email = "ahmed.kabir@kaziagro.com",
-                    role = "ADMIN",
-                    isApproved = true,
-                    registeredDate = 1724400000000L
-                ),
-                UserEntity(
-                    id = "sample_2",
-                    username = "রহিম মিয়া",
-                    phone = "01822-556677",
-                    email = "rahim.mia@kaziagro.com",
-                    role = "MANAGER",
-                    isApproved = true,
-                    registeredDate = 1724401000000L
-                ),
-                UserEntity(
-                    id = "sample_3",
-                    username = "সাদিয়া আলম",
-                    phone = "01933-889900",
-                    email = "sadia.alam@kaziagro.com",
-                    role = "WORKER",
-                    isApproved = false,
-                    registeredDate = 1724402000000L
-                )
-            )
-        } else {
-            allUsers
-        }
-    }
+    val displayUsers = allUsers
 
     // Filtering logic
     val filteredUsers = remember(displayUsers, searchQuery) {
