@@ -342,9 +342,18 @@ fun MainContainerScreen(
             if (showFarmNotifications) {
                 FarmNotificationDialog(
                     viewModel = viewModel,
-                    onDismiss = { showFarmNotifications = false },
-                    onNavigateToAddDailyReport = onNavigateToAddDailyReport,
-                    onNavigateToDailyReportList = { currentTab = BottomNavTab.DAILY_REPORT }
+                    onDismiss = {
+                        showFarmNotifications = false
+                        viewModel.markNotificationsRead()
+                    },
+                    onNavigateToAddDailyReport = {
+                        viewModel.markNotificationsRead()
+                        onNavigateToAddDailyReport()
+                    },
+                    onNavigateToDailyReportList = {
+                        viewModel.markNotificationsRead()
+                        currentTab = BottomNavTab.DAILY_REPORT
+                    }
                 )
             }
 

@@ -89,7 +89,8 @@ fun DailyReportScreen(
 
     val todayDate = remember { BanglaNumberFormatter.getCurrentDateFormatted() }
     val hasTodayReport = remember(dailyReports, todayDate) { dailyReports.any { it.date == todayDate } }
-    val hasUnreadNotification = !hasTodayReport
+    val notifDismissedDate by viewModel.notificationDismissedDate.collectAsState()
+    val hasUnreadNotification = !hasTodayReport && notifDismissedDate != todayDate
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
     val canViewReport = currentUser?.canViewReport(userPerms) ?: false

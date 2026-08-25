@@ -21,12 +21,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -105,7 +103,7 @@ fun UserProfileScreen(
     Scaffold(
         topBar = {
             MainTopAppBar(
-                title = "ব্যবহারকারী প্রোফাইল",
+                title = "প্রোফাইল",
                 isRootScreen = false,
                 onBackClick = onBack
             )
@@ -120,166 +118,203 @@ fun UserProfileScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
                 .testTag("user_profile_screen"),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // ══════════════════════════════════════════
             // Profile Header Card
+            // ══════════════════════════════════════════
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Avatar with Camera Overlay
+                    // Accent bar at top
                     Box(
                         modifier = Modifier
-                            .size(86.dp)
-                            .clip(CircleShape)
-                            .clickable { photoPickerLauncher.launch("image/*") }
-                            .testTag("btn_change_profile_photo"),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        UserProfileAvatar(
-                            profileImageUri = currentUser?.profileImageUri ?: "",
-                            username = currentUser?.username ?: "",
+                        // Avatar with Camera Overlay
+                        Box(
                             modifier = Modifier
-                                .size(86.dp)
+                                .size(90.dp)
                                 .clip(CircleShape)
-                        )
-
-                        if (isUploadingPhoto) {
-                            Box(
-                                modifier = Modifier
-                                    .size(86.dp)
-                                    .background(Color.Black.copy(alpha = 0.45f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(28.dp),
-                                    strokeWidth = 3.dp
-                                )
-                            }
-                        } else {
-                            // Camera Overlay Badge
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .size(26.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = "Change Photo",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Photo Action Buttons
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedButton(
-                            onClick = { photoPickerLauncher.launch("image/*") },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier.height(34.dp)
+                                .clickable { photoPickerLauncher.launch("image/*") }
+                                .testTag("btn_change_profile_photo"),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if ((currentUser?.profileImageUri ?: "").isNotBlank()) "ছবি পরিবর্তন" else "ছবি যোগ করুন",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        if ((currentUser?.profileImageUri ?: "").isNotBlank()) {
-                            IconButton(
-                                onClick = {
-                                    viewModel.removeUserProfileImage {
-                                        SnackbarController.showMessage("প্রোফাইল ছবি সরানো হয়েছে")
-                                    }
-                                },
+                            UserProfileAvatar(
+                                profileImageUri = currentUser?.profileImageUri ?: "",
+                                username = currentUser?.username ?: "",
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(90.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surface)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.DeleteOutline,
-                                    contentDescription = "Remove Photo",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                            )
+
+                            if (isUploadingPhoto) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(90.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.45f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(28.dp),
+                                        strokeWidth = 3.dp
+                                    )
+                                }
+                            } else {
+                                // Camera badge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surface),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CameraAlt,
+                                            contentDescription = "Change Photo",
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
-                        text = currentUser?.username ?: "ব্যবহারকারী",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    )
+                        // Photo action buttons
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = { photoPickerLauncher.launch("image/*") },
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.height(32.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoCamera,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if ((currentUser?.profileImageUri ?: "").isNotBlank()) "পরিবর্তন" else "ছবি যোগ",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
 
-                    Text(
-                        text = currentUser?.email ?: "",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
-                    )
+                            if ((currentUser?.profileImageUri ?: "").isNotBlank()) {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.removeUserProfileImage {
+                                            SnackbarController.showMessage("প্রোফাইল ছবি সরানো হয়েছে")
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteOutline,
+                                        contentDescription = "Remove Photo",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    // Role Chip
-                    val role = currentUser?.role?.uppercase() ?: "WORKER"
-                    val roleLabel = when (role) {
-                        "ADMIN" -> "এডমিন (Administrator)"
-                        "MANAGER" -> "ম্যানেজার (Manager)"
-                        "SUPERVISOR" -> "সুপারভাইজার (Supervisor)"
-                        else -> "কর্মী (Staff Member)"
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
+                        // Name
                         Text(
-                            text = roleLabel,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
+                            text = currentUser?.username ?: "ব্যবহারকারী",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        // Email
+                        Text(
+                            text = currentUser?.email ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Role Chip
+                        val role = currentUser?.role?.uppercase() ?: "WORKER"
+                        val roleLabel = when (role) {
+                            "ADMIN" -> "এডমিন"
+                            "MANAGER" -> "ম্যানেজার"
+                            "SUPERVISOR" -> "সুপারভাইজার"
+                            else -> "কর্মী"
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .padding(horizontal = 14.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = roleLabel,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                        )
+                        }
                     }
                 }
             }
 
+            // ══════════════════════════════════════════
             // Account Information Section
+            // ══════════════════════════════════════════
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -290,16 +325,22 @@ fun UserProfileScreen(
                     Text(
                         text = "ব্যক্তিগত তথ্য সম্পাদনা",
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("আপনার নাম") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth().testTag("profile_name_input"),
                         singleLine = true
                     )
@@ -308,7 +349,13 @@ fun UserProfileScreen(
                         value = phone,
                         onValueChange = { phone = it },
                         label = { Text("মোবাইল নম্বর") },
-                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth().testTag("profile_phone_input"),
                         singleLine = true
                     )
@@ -318,7 +365,13 @@ fun UserProfileScreen(
                         onValueChange = {},
                         enabled = false,
                         label = { Text("ইমেইল (পরিবর্তনযোগ্য নয়)") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Email,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -350,11 +403,15 @@ fun UserProfileScreen(
                 }
             }
 
+            // ══════════════════════════════════════════
             // Access Permissions Card
+            // ══════════════════════════════════════════
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
             ) {
                 Column(
                     modifier = Modifier
@@ -371,30 +428,34 @@ fun UserProfileScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "আপনার এক্সেস সুবিধাসমূহ",
+                            text = "এক্সেস সুবিধাসমূহ",
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    )
 
                     val role = currentUser?.role?.uppercase() ?: "WORKER"
                     val isAdmin = role == "ADMIN"
                     val isManager = role == "MANAGER" || isAdmin
                     val isSupervisor = role == "SUPERVISOR" || isManager
 
-                    PermissionRow(title = "দৈনিক রিপোর্ট ও ব্যয় রেজিস্টার প্রদর্শন", allowed = true)
-                    PermissionRow(title = "দৈনিক রিপোর্ট ও ব্যয় তৈরি/এন্ট্রি", allowed = isSupervisor)
+                    PermissionRow(title = "দৈনিক রিপোর্ট ও ব্যয় রেজিস্টার প্রদর্শন", allowed = true)
+                    PermissionRow(title = "দৈনিক রিপোর্ট ও ব্যয় তৈরি/এন্ট্রি", allowed = isSupervisor)
                     PermissionRow(title = "পূর্ববর্তী এন্ট্রি এডিট ও আপডেট", allowed = isManager)
-                    PermissionRow(title = "খামার প্রোফাইল ও লোগো পরিবর্তন (এডমিন মাত্র)", allowed = isAdmin)
-                    PermissionRow(title = "ইউজার রেজিস্ট্রেশন অনুমোদন ও রোল নিয়ন্ত্রণ", allowed = isAdmin)
+                    PermissionRow(title = "খামার প্রোফাইল ও লোগো পরিবর্তন", allowed = isAdmin)
+                    PermissionRow(title = "ইউজার রেজিস্ট্রেশন অনুমোদন ও রোল নিয়ন্ত্রণ", allowed = isAdmin)
                 }
             }
 
+            // ══════════════════════════════════════════
             // Logout Section
+            // ══════════════════════════════════════════
             OutlinedButton(
                 onClick = {
                     viewModel.logout {
@@ -424,13 +485,25 @@ private fun PermissionRow(title: String, allowed: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = if (allowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            ),
-            modifier = Modifier.weight(1f)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f).padding(end = 8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = if (allowed) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = if (allowed) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            )
+        }
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
@@ -440,7 +513,7 @@ private fun PermissionRow(title: String, allowed: Boolean) {
                 .padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
             Text(
-                text = if (allowed) "সক্রিয়" else "অনুমতি নেই",
+                text = if (allowed) "সক্রিয়" else "নেই",
                 color = if (allowed) Color(0xFF2E7D32) else Color(0xFFC62828),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold

@@ -54,6 +54,14 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     // Sync / Backup status message
     val syncStatus = MutableStateFlow("ফায়ারবেস ক্লাউড কানেক্টেড")
 
+    // Notification read/unread state — stores the date when notifications were last dismissed
+    private val _notificationDismissedDate = MutableStateFlow("")
+    val notificationDismissedDate: StateFlow<String> = _notificationDismissedDate
+
+    fun markNotificationsRead() {
+        _notificationDismissedDate.value = com.example.ui.components.BanglaNumberFormatter.getCurrentDateFormatted()
+    }
+
     init {
         dailyReports = repository.allDailyReports.stateIn(
             viewModelScope,
