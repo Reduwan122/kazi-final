@@ -85,6 +85,7 @@ fun DailyReportScreen(
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
+    val canViewReport = currentUser?.canViewReport(userPerms) ?: false
     val canAddReport = currentUser?.canAddReport(userPerms) ?: false
     val canEditReport = currentUser?.canEditReport(userPerms) ?: false
     val canDeleteReport = currentUser?.canDeleteReport(userPerms) ?: false
@@ -161,160 +162,167 @@ fun DailyReportScreen(
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(innerPadding)
-                .testTag("daily_report_screen")
-        ) {
-            // Sticky Toolbar: Search & Export
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 1.dp,
-                modifier = Modifier.fillMaxWidth()
+        if (!canViewReport) {
+            com.example.ui.components.AccessDeniedView(
+                title = "দৈনিক রিপোর্ট সংরক্ষিত",
+                message = "আপনার রোলে দৈনিক রিপোর্ট দেখার অনুমতি সক্রিয় করা নেই।",
+                modifier = Modifier.padding(innerPadding)
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(innerPadding)
+                    .testTag("daily_report_screen")
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                // Sticky Toolbar: Search & Export
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "দৈনিক রেজিস্টার",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        // Title + Export Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "রিপোর্ট তালিকা",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             )
-                        )
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(
-                                onClick = { onPreviewPdf(filteredReports) },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier.height(36.dp).testTag("btn_export_pdf")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PictureAsPdf,
-                                    contentDescription = "PDF",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("পিডিএফ", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                            }
-
-                            OutlinedButton(
-                                onClick = { viewModel.exportDailyReportsCsv(context) },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier.height(36.dp).testTag("btn_export_excel")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.TableView,
-                                    contentDescription = "Excel",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("এক্সেল", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-
-                    // Search & Month Filter Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("খুঁজুন...", fontSize = 13.sp) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
+                            if (canDownloadPdf) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    OutlinedButton(
+                                        onClick = { onPreviewPdf(filteredReports) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(36.dp).testTag("btn_export_pdf")
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Clear",
+                                            imageVector = Icons.Default.PictureAsPdf,
+                                            contentDescription = "PDF",
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(16.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("পিডিএফ", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { viewModel.exportDailyReportsCsv(context) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(36.dp).testTag("btn_export_excel")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.TableView,
+                                            contentDescription = "Excel",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("এক্সেল", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .testTag("daily_search_field")
-                        )
-
-                        Box {
-                            OutlinedButton(
-                                onClick = { monthMenuExpanded = true },
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(48.dp)
-                            ) {
-                                Text(
-                                    text = if (selectedMonth == "সকল রেকর্ড") "সকল রেকর্ড" else BanglaNumberFormatter.formatYearMonth(selectedMonth),
-                                    fontSize = 12.sp
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = "Month",
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
+                        }
 
-                            DropdownMenu(
-                                expanded = monthMenuExpanded,
-                                onDismissRequest = { monthMenuExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("সকল রেকর্ড") },
-                                    onClick = {
-                                        selectedMonth = "সকল রেকর্ড"
-                                        monthMenuExpanded = false
+                        // Search & Month Filter Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("খুঁজুন...", fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = "Search",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Clear",
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
-                                )
-                                availableMonths.forEach { month ->
-                                    val currentMonth = BanglaNumberFormatter.getCurrentDateFormatted().take(7)
-                                    val label = BanglaNumberFormatter.formatYearMonth(month) +
-                                        if (month == currentMonth) " (চলতি মাস)" else ""
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("daily_search_field")
+                            )
+
+                            Box {
+                                OutlinedButton(
+                                    onClick = { monthMenuExpanded = true },
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Text(
+                                        text = if (selectedMonth == "সকল রেকর্ড") "সকল রেকর্ড" else BanglaNumberFormatter.formatYearMonth(selectedMonth),
+                                        fontSize = 12.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select Month",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = monthMenuExpanded,
+                                    onDismissRequest = { monthMenuExpanded = false }
+                                ) {
                                     DropdownMenuItem(
-                                        text = { Text(label) },
+                                        text = { Text("সকল রেকর্ড") },
                                         onClick = {
-                                            selectedMonth = month
+                                            selectedMonth = "সকল রেকর্ড"
                                             monthMenuExpanded = false
                                         }
                                     )
+                                    availableMonths.forEach { monthStr ->
+                                        DropdownMenuItem(
+                                            text = { Text(BanglaNumberFormatter.formatYearMonth(monthStr)) },
+                                            onClick = {
+                                                selectedMonth = monthStr
+                                                monthMenuExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
             // Modern Mobile Sheet Table View
             if (filteredReports.isEmpty()) {

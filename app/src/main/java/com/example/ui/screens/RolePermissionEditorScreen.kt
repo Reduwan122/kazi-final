@@ -97,11 +97,16 @@ fun RolePermissionEditorScreen(
         )
     }
 
-    // Keep in sync when switching roles or when repository updates
-    LaunchedEffect(selectedRoleKey, rolePermissionsMap) {
+    // Keep in sync when switching roles
+    LaunchedEffect(selectedRoleKey) {
         val updated = rolePermissionsMap[selectedRoleKey]
             ?: RolePermissionConfig.getDefaultPermissionsForRole(selectedRoleKey)
         currentConfig = updated
+    }
+
+    val updateConfig: (RolePermissionConfig) -> Unit = { newConfig ->
+        currentConfig = newConfig
+        viewModel.updateRolePermissions(newConfig)
     }
 
     val allRoles = remember { RolePermissionConfig.getAllRoles() }
@@ -331,7 +336,8 @@ fun RolePermissionEditorScreen(
             ) {
                 OutlinedButton(
                     onClick = {
-                        currentConfig = currentConfig.copy(
+                        haptics.tap()
+                        val newConfig = currentConfig.copy(
                             dailyReportView = true,
                             dailyReportAdd = true,
                             userManagementView = true,
@@ -341,6 +347,7 @@ fun RolePermissionEditorScreen(
                             reportAnalyticsView = true,
                             reportAnalyticsDownload = true
                         )
+                        updateConfig(newConfig)
                     },
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
@@ -350,7 +357,9 @@ fun RolePermissionEditorScreen(
 
                 OutlinedButton(
                     onClick = {
-                        currentConfig = RolePermissionConfig.getDefaultPermissionsForRole(selectedRoleKey)
+                        haptics.tap()
+                        val newConfig = RolePermissionConfig.getDefaultPermissionsForRole(selectedRoleKey)
+                        updateConfig(newConfig)
                     },
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
@@ -379,7 +388,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "দৈনিক হিসাব ও ফার্মের সার্বিক রিপোর্ট দেখতে পারবে",
                     isChecked = currentConfig.dailyReportView,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(dailyReportView = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(dailyReportView = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_daily_view",
@@ -391,7 +401,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "নতুন দৈনিক ডিম উৎপাদন ও খাদ্য রিপোর্ট যোগ করতে পারবে",
                     isChecked = currentConfig.dailyReportAdd,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(dailyReportAdd = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(dailyReportAdd = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_daily_add",
@@ -417,7 +428,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "ব্যবহারকারী তালিকা দেখা, অনুমোদন এবং ভূমিকা পরিবর্তনের অ্যাক্সেস",
                     isChecked = currentConfig.userManagementView,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(userManagementView = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(userManagementView = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_user_view",
@@ -443,7 +455,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "খামারের সকল ব্যয়ের হিসাব ও তালিকা দেখতে পারবে",
                     isChecked = currentConfig.expenseView,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(expenseView = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(expenseView = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_expense_view",
@@ -455,7 +468,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "নতুন ব্যয়ের ভাউচার বা ক্যাটাগরি অনুসারে এন্ট্রি যুক্ত করতে পারবে",
                     isChecked = currentConfig.expenseAdd,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(expenseAdd = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(expenseAdd = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_expense_add",
@@ -467,7 +481,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "ভুল এন্ট্রি সংশোধন বা ডিলিট করার ক্ষমতা",
                     isChecked = currentConfig.expenseDelete,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(expenseDelete = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(expenseDelete = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_expense_delete",
@@ -493,7 +508,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "মাসিক আয়-ব্যয় এবং ডিম উৎপাদনের গ্রাফ দেখতে পারবে",
                     isChecked = currentConfig.reportAnalyticsView,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(reportAnalyticsView = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(reportAnalyticsView = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_report_view",
@@ -505,7 +521,8 @@ fun RolePermissionEditorScreen(
                     subtitle = "মাসিক ও বাৎসরিক রিপোর্ট পিডিএফ আকারে এক্সপোর্ট করতে পারবে",
                     isChecked = currentConfig.reportAnalyticsDownload,
                     onCheckedChange = { checked ->
-                        currentConfig = currentConfig.copy(reportAnalyticsDownload = checked)
+                        haptics.tap()
+                        updateConfig(currentConfig.copy(reportAnalyticsDownload = checked))
                     },
                     primaryColor = primaryGreen,
                     testTag = "toggle_report_download",

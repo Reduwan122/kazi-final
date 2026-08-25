@@ -9,6 +9,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 
 /**
  * Tap feedback routed through the platform view rather than a `Vibrator`, so it needs no
@@ -97,4 +100,67 @@ fun Modifier.scaleClickable(
             if (haptic) haptics.tap()
             onClick()
         }
+}
+
+/**
+ * Clean access restricted message card displayed when a user's role does not have view permission.
+ */
+@Composable
+fun AccessDeniedView(
+    title: String = "অ্যাক্সেস সংরক্ষিত",
+    message: String = "আপনার বর্তমান রোল থেকে এই সেকশনটি দেখার অনুমতি নেই। খামার প্রশাসকের সাথে যোগাযোগ করুন।",
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier
+            .androidx.compose.foundation.layout.fillMaxSize()
+            .androidx.compose.foundation.layout.padding(24.dp),
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        androidx.compose.material3.Card(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            colors = androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer
+            ),
+            modifier = androidx.compose.foundation.layout.Modifier.androidx.compose.foundation.layout.fillMaxWidth()
+        ) {
+            androidx.compose.foundation.layout.Column(
+                modifier = androidx.compose.foundation.layout.Modifier
+                    .androidx.compose.foundation.layout.fillMaxWidth()
+                    .androidx.compose.foundation.layout.padding(24.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+            ) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = androidx.compose.foundation.layout.Modifier
+                        .androidx.compose.foundation.layout.size(56.dp)
+                        .androidx.compose.ui.draw.clip(androidx.compose.foundation.shape.CircleShape)
+                        .androidx.compose.foundation.background(androidx.compose.material3.MaterialTheme.colorScheme.errorContainer),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+                        contentDescription = "Access Denied",
+                        tint = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                        modifier = androidx.compose.foundation.layout.Modifier.androidx.compose.foundation.layout.size(28.dp)
+                    )
+                }
+                androidx.compose.material3.Text(
+                    text = title,
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    ),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                androidx.compose.material3.Text(
+                    text = message,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
 }

@@ -79,6 +79,7 @@ fun MonthlyExpenseScreen(
     val rolePermissionsMap by viewModel.rolePermissions.collectAsState()
 
     val userPerms = currentUser?.let { rolePermissionsMap[it.role.uppercase()] }
+    val canViewExpense = currentUser?.canViewExpense(userPerms) ?: false
     val canAddExpense = currentUser?.canAddExpense(userPerms) ?: false
     val canEditExpense = currentUser?.canEditExpense(userPerms) ?: false
     val canDeleteExpense = currentUser?.canDeleteExpense(userPerms) ?: false
@@ -159,65 +160,73 @@ fun MonthlyExpenseScreen(
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(innerPadding)
-                .testTag("monthly_expense_screen")
-        ) {
-            // Sticky Toolbar: Search & Export
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 1.dp,
-                modifier = Modifier.fillMaxWidth()
+        if (!canViewExpense) {
+            com.example.ui.components.AccessDeniedView(
+                title = "মাসিক ব্যয় সংরক্ষিত",
+                message = "আপনার রোলে ব্যয়ের হিসাব দেখার অনুমতি সক্রিয় করা নেই।",
+                modifier = Modifier.padding(innerPadding)
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(innerPadding)
+                    .testTag("monthly_expense_screen")
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                // Sticky Toolbar: Search & Export
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "মাসিক ব্যয় রেজিস্টার",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(
-                                onClick = { onPreviewExpensePdf(filteredExpenses) },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier.height(36.dp).testTag("btn_expense_pdf")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PictureAsPdf,
-                                    contentDescription = "PDF",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "মাসিক ব্যয় রেজিস্টার",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("পিডিএফ", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                            }
+                            )
 
-                            OutlinedButton(
-                                onClick = { viewModel.exportExpensesCsv(context) },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier.height(36.dp).testTag("btn_expense_excel")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.TableView,
-                                    contentDescription = "Excel",
-                                    tint = MaterialTheme.colorScheme.primary,
+                            if (canDownloadExpensePdf) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    OutlinedButton(
+                                        onClick = { onPreviewExpensePdf(filteredExpenses) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(36.dp).testTag("btn_expense_pdf")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PictureAsPdf,
+                                            contentDescription = "PDF",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("পিডিএফ", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { viewModel.exportExpensesCsv(context) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(36.dp).testTag("btn_expense_excel")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.TableView,
+                                            contentDescription = "Excel",
+                                            tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))

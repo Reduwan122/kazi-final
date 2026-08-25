@@ -43,69 +43,79 @@ data class UserEntity(
     // Role-based capabilities with dynamic RolePermissionConfig support
     fun canViewReport(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.dailyReportView
         if (isAdmin()) return true
-        return permissions?.dailyReportView ?: true
+        return true
     }
 
     fun canAddReport(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.dailyReportAdd
         if (isAdmin()) return true
-        return permissions?.dailyReportAdd ?: true
+        return true
     }
 
     fun canEditReport(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
-        if (isAdmin()) return true
         if (permissions != null) return permissions.dailyReportAdd
+        if (isAdmin()) return true
         return isManager() || isSupervisor()
     }
 
     fun canDeleteReport(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null && !isAdmin()) return false
         if (isAdmin()) return true
         return false
     }
 
     fun canViewExpense(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.expenseView
         if (isAdmin()) return true
-        return permissions?.expenseView ?: true
+        return true
     }
 
     fun canAddExpense(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.expenseAdd
         if (isAdmin()) return true
-        return permissions?.expenseAdd ?: (isManager() || isSupervisor())
+        return isManager() || isSupervisor()
     }
 
     fun canEditExpense(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.expenseAdd
         if (isAdmin()) return true
-        return permissions?.expenseAdd ?: isManager()
+        return isManager()
     }
 
     fun canDeleteExpense(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.expenseDelete
         if (isAdmin()) return true
-        return permissions?.expenseDelete ?: false
+        return false
     }
 
     fun canViewReportsAndAnalytics(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.reportAnalyticsView
         if (isAdmin()) return true
-        return permissions?.reportAnalyticsView ?: true
+        return true
     }
 
     fun canDownloadReports(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.reportAnalyticsDownload
         if (isAdmin()) return true
-        return permissions?.reportAnalyticsDownload ?: (isManager() || isSupervisor())
+        return isManager() || isSupervisor()
     }
 
     fun canManageUsers(permissions: RolePermissionConfig? = null): Boolean {
         if (!isApprovedUser()) return false
+        if (permissions != null) return permissions.userManagementView
         if (isAdmin()) return true
-        return permissions?.userManagementView ?: false
+        return false
     }
 
     fun canEditFarmProfile(): Boolean = isApprovedUser() && isAdmin()

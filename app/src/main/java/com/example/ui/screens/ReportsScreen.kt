@@ -135,16 +135,23 @@ fun ReportsScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
-                .testTag("reports_screen"),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        if (!canViewReports) {
+            com.example.ui.components.AccessDeniedView(
+                title = "রিপোর্ট ও বিশ্লেষণ সংরক্ষিত",
+                message = "আপনার রোলে রিপোর্ট ও বিশ্লেষণ দেখার অনুমতি সক্রিয় করা নেই।",
+                modifier = Modifier.padding(innerPadding)
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState())
+                    .testTag("reports_screen"),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             Spacer(modifier = Modifier.height(4.dp))
 
             // Month Filter & Actions Card
@@ -405,6 +412,7 @@ fun ReportsScreen(
             Spacer(modifier = Modifier.height(72.dp))
         }
     }
+}
 
     if (showShareCardModal) {
         val monthLabel = if (selectedMonthFilter == "সকল রেকর্ড") {
