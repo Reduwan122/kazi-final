@@ -77,8 +77,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.example.R
+import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.FarmLogoDisplay
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.components.UserProfileAvatar

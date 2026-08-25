@@ -614,6 +614,7 @@ fun MonthlyExpenseScreen(
             }
         }
     }
+}
 
     if (showActionDialog && selectedExpenseForAction != null) {
         val exp = selectedExpenseForAction!!

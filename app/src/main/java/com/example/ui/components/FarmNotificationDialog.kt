@@ -57,8 +57,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.data.local.BanglaNumberFormatter
 import com.example.data.local.DailyReportEntity
+import com.example.data.local.UserEntity
 import com.example.ui.viewmodel.PoultryViewModel
 
 @Composable
@@ -71,7 +71,8 @@ fun FarmNotificationDialog(
     val dailyReports by viewModel.dailyReports.collectAsState()
     val stats by viewModel.dashboardStats.collectAsState()
     val farmProfile by viewModel.farmProfile.collectAsState()
-    val pendingUsers by viewModel.pendingUsers.collectAsState()
+    val allUsers by viewModel.allUsers.collectAsState()
+    val pendingUsers = remember(allUsers) { allUsers.filter { !it.isApproved && !it.isAdmin() } }
     val currentUser by viewModel.currentUser.collectAsState()
 
     val todayDateFormatted = remember { BanglaNumberFormatter.getCurrentDateFormatted() }

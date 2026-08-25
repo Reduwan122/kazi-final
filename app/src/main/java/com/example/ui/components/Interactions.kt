@@ -6,18 +6,37 @@ import android.view.View
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 /**
@@ -111,54 +130,54 @@ fun AccessDeniedView(
     message: String = "আপনার বর্তমান রোল থেকে এই সেকশনটি দেখার অনুমতি নেই। খামার প্রশাসকের সাথে যোগাযোগ করুন।",
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.foundation.layout.Box(
+    Box(
         modifier = modifier
-            .androidx.compose.foundation.layout.fillMaxSize()
-            .androidx.compose.foundation.layout.padding(24.dp),
-        contentAlignment = androidx.compose.ui.Alignment.Center
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
     ) {
-        androidx.compose.material3.Card(
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            colors = androidx.compose.material3.CardDefaults.cardColors(
-                containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
             ),
-            modifier = androidx.compose.foundation.layout.Modifier.androidx.compose.foundation.layout.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
         ) {
-            androidx.compose.foundation.layout.Column(
-                modifier = androidx.compose.foundation.layout.Modifier
-                    .androidx.compose.foundation.layout.fillMaxWidth()
-                    .androidx.compose.foundation.layout.padding(24.dp),
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = androidx.compose.foundation.layout.Modifier
-                        .androidx.compose.foundation.layout.size(56.dp)
-                        .androidx.compose.ui.draw.clip(androidx.compose.foundation.shape.CircleShape)
-                        .androidx.compose.foundation.background(androidx.compose.material3.MaterialTheme.colorScheme.errorContainer),
-                    contentAlignment = androidx.compose.ui.Alignment.Center
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.errorContainer),
+                    contentAlignment = Alignment.Center
                 ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+                    Icon(
+                        imageVector = Icons.Default.Lock,
                         contentDescription = "Access Denied",
-                        tint = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                        modifier = androidx.compose.foundation.layout.Modifier.androidx.compose.foundation.layout.size(28.dp)
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
-                androidx.compose.material3.Text(
+                Text(
                     text = title,
-                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
-                androidx.compose.material3.Text(
+                Text(
                     text = message,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
-                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
             }
         }
