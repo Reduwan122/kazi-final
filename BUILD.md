@@ -93,3 +93,4 @@ export KEY_PASSWORD="your_key_password"
 The output will be generated at:
 - **APK**: `app/build/outputs/apk/release/app-release.apk`
 - **AAB**: `app/build/outputs/bundle/release/app-release.aab`
+
