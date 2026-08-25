@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -214,7 +215,8 @@ fun ReportsScreen(
                     if (canDownload) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Button(
                                 onClick = {
@@ -222,12 +224,26 @@ fun ReportsScreen(
                                     showShareCardModal = true
                                 },
                                 shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_share_card")
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .testTag("btn_reports_share_card")
                             ) {
-                                Icon(imageVector = Icons.Default.Share, contentDescription = "Share Card", modifier = Modifier.size(17.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share",
+                                    modifier = Modifier.size(16.dp)
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("কার্ড শেয়ার", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "শেয়ার",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
 
                             OutlinedButton(
@@ -236,11 +252,27 @@ fun ReportsScreen(
                                     showPdfPreviewModal = true
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_pdf")
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .testTag("btn_reports_pdf")
                             ) {
-                                Icon(imageVector = Icons.Default.PictureAsPdf, contentDescription = "PDF", modifier = Modifier.size(17.dp))
+                                Icon(
+                                    imageVector = Icons.Default.PictureAsPdf,
+                                    contentDescription = "PDF",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("পিডিএফ", fontSize = 12.sp)
+                                Text(
+                                    text = "পিডিএফ",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
 
                             OutlinedButton(
@@ -253,11 +285,27 @@ fun ReportsScreen(
                                     }
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_reports_excel")
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .testTag("btn_reports_excel")
                             ) {
-                                Icon(imageVector = Icons.Default.TableView, contentDescription = "Excel", modifier = Modifier.size(17.dp))
+                                Icon(
+                                    imageVector = Icons.Default.TableView,
+                                    contentDescription = "Excel",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("এক্সেল", fontSize = 12.sp)
+                                Text(
+                                    text = "এক্সেল",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
                     }
