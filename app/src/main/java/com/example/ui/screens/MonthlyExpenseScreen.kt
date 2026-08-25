@@ -239,101 +239,102 @@ fun MonthlyExpenseScreen(
                                             imageVector = Icons.Default.TableView,
                                             contentDescription = "Excel",
                                             tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("এক্সেল", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-
-                    // Search & Filter Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("খুঁজুন...", fontSize = 13.sp) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Clear",
                                             modifier = Modifier.size(16.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("এক্সেল", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .testTag("expense_search_field")
-                        )
-
-                        Box {
-                            OutlinedButton(
-                                onClick = { monthMenuExpanded = true },
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(48.dp)
-                            ) {
-                                Text(
-                                    text = if (selectedMonth == "সকল রেকর্ড") "সকল রেকর্ড" else BanglaNumberFormatter.formatYearMonth(selectedMonth),
-                                    fontSize = 12.sp
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = "Month",
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
+                        }
 
-                            DropdownMenu(
-                                expanded = monthMenuExpanded,
-                                onDismissRequest = { monthMenuExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("সকল রেকর্ড") },
-                                    onClick = {
-                                        selectedMonth = "সকল রেকর্ড"
-                                        monthMenuExpanded = false
+                        // Search & Filter Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("খুঁজুন...", fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = "Search",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Clear",
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
-                                )
-                                availableMonths.forEach { month ->
-                                    val currentMonth = BanglaNumberFormatter.getCurrentDateFormatted().take(7)
-                                    val label = BanglaNumberFormatter.formatYearMonth(month) +
-                                        if (month == currentMonth) " (চলতি মাস)" else ""
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("expense_search_field")
+                            )
+
+                            Box {
+                                OutlinedButton(
+                                    onClick = { monthMenuExpanded = true },
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Text(
+                                        text = if (selectedMonth == "সকল রেকর্ড") "সকল রেকর্ড" else BanglaNumberFormatter.formatYearMonth(selectedMonth),
+                                        fontSize = 12.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarMonth,
+                                        contentDescription = "Month",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = monthMenuExpanded,
+                                    onDismissRequest = { monthMenuExpanded = false }
+                                ) {
                                     DropdownMenuItem(
-                                        text = { Text(label) },
+                                        text = { Text("সকল রেকর্ড") },
                                         onClick = {
-                                            selectedMonth = month
+                                            selectedMonth = "সকল রেকর্ড"
                                             monthMenuExpanded = false
                                         }
                                     )
+                                    availableMonths.forEach { month ->
+                                        val currentMonth = BanglaNumberFormatter.getCurrentDateFormatted().take(7)
+                                        val label = BanglaNumberFormatter.formatYearMonth(month) +
+                                            if (month == currentMonth) " (চলতি মাস)" else ""
+                                        DropdownMenuItem(
+                                            text = { Text(label) },
+                                            onClick = {
+                                                selectedMonth = month
+                                                monthMenuExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
             // Mobile Sheet Table View
             if (filteredExpenses.isEmpty()) {
@@ -614,7 +615,6 @@ fun MonthlyExpenseScreen(
             }
         }
     }
-}
 
     if (showActionDialog && selectedExpenseForAction != null) {
         val exp = selectedExpenseForAction!!
@@ -639,5 +639,6 @@ fun MonthlyExpenseScreen(
             farmProfile = farmProfile,
             onDismiss = { shareCardExpense = null }
         )
+    }
     }
 }
