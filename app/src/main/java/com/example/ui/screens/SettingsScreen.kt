@@ -117,6 +117,7 @@ fun SettingsScreen(
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showInitialStockDialog by remember { mutableStateOf(false) }
     var isUploadingLogo by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -452,6 +453,70 @@ fun SettingsScreen(
                                     text = "ম্যানেজার, সুপারভাইজার ও কর্মীর এক্সেস কনফিগারেশন",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
+                        }
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                            contentDescription = "Go",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Initial Baseline Stock Setup Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { showInitialStockDialog = true }
+                        .testTag("admin_initial_stock_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Storage,
+                                    contentDescription = "Initial Stock",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "প্রারম্ভিক স্টক কনফিগারেশন",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                                val stockDisplay = if (farmProfile.initialOpeningStock > 0) {
+                                    "${BanglaNumberFormatter.formatNumber(farmProfile.initialOpeningStock)} ডিম (${if (farmProfile.initialOpeningDate.isNotBlank()) BanglaNumberFormatter.formatShortDate(farmProfile.initialOpeningDate) else "পূর্ববর্তী"})"
+                                } else {
+                                    "সেট করা নেই (০ ডিম)"
+                                }
+                                Text(
+                                    text = "বর্তমান প্রারম্ভিক স্টক: $stockDisplay",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 )
                             }
@@ -1103,6 +1168,95 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutConfirm = false }) {
+                    Text("বাতিল")
+                }
+            }
+        )
+    }
+
+    // Initial Baseline Stock Setup Dialog (Admin Only)
+    if (showInitialStockDialog) {
+        var stockInput by remember { mutableStateOf(if (farmProfile.initialOpeningStock > 0) farmProfile.initialOpeningStock.toString() else "") }
+        var dateInput by remember { mutableStateOf(farmProfile.initialOpeningDate) }
+
+        AlertDialog(
+            onDismissRequest = { showInitialStockDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Storage,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "প্রারম্ভিক স্টক সেটআপ",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 18.sp
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "প্রথম দৈনিক রিপোর্ট রেকর্ড করার পূর্ববর্তী সমাপনী স্টক (Closing Stock) এখানে দিন। পুরো সিস্টেম এই স্টকের উপর ভিত্তি করে ধারাবাহিক স্টক গণনা করবে।",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = stockInput,
+                        onValueChange = { stockInput = it.filter { ch -> ch.isDigit() } },
+                        label = { Text("প্রারম্ভিক ডিমের স্টক (সংখ্যা)") },
+                        placeholder = { Text("উদাহরণ: 729") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = dateInput,
+                        onValueChange = { dateInput = it },
+                        label = { Text("তারিখ (ঐচ্ছিক - YYYY-MM-DD)") },
+                        placeholder = { Text("উদাহরণ: 2026-07-31") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "💡 উদাহরণ: আপনার খামারের প্রথম রিপোর্ট যদি ০১/০৮/২০২৬ হয় এবং ৩১/০৭/২০২৬ তারিখে ৭২৯টি ডিম থেকে থাকে, তবে এখানে ৭২৯ লিখুন।",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val parsedStock = stockInput.toIntOrNull() ?: 0
+                        viewModel.updateInitialOpeningStock(parsedStock, dateInput.trim())
+                        showInitialStockDialog = false
+                    }
+                ) {
+                    Text("সংরক্ষণ করুন")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showInitialStockDialog = false }) {
                     Text("বাতিল")
                 }
             }

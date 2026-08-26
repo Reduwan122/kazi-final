@@ -343,17 +343,15 @@ fun DailyReportDetailScreen(
                 }
             }
 
-            // Inventory & Stock Ledger Card (ডিম স্টক হিসাব)
-            val stockLedger by viewModel.stockLedger.collectAsState()
-            val stockRecord = report.let { stockLedger[it.date] }
-            val closingStock = stockRecord?.closingStock ?: report.currentStock
-            val isNegative = closingStock < 0
+            // Specific Date Egg Balance Card (দিনের ডিম ব্যালেন্স / উদ্বৃত্ত)
+            val dayEggBalance = report.eggProduction - report.eggSold - report.otherStockOut + report.otherStockIn + report.stockAdjustment
+            val isNegativeDayBalance = dayEggBalance < 0
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = if (isNegative) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
+                border = if (isNegativeDayBalance) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
@@ -362,25 +360,20 @@ fun DailyReportDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "ডিম স্টক বিবরণ",
+                            text = "দিনের ডিম ব্যালেন্স (উদ্বৃত্ত)",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${BanglaNumberFormatter.formatNumber(closingStock)} পিস",
+                            text = "${if (dayEggBalance > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(dayEggBalance)} পিস",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                color = if (isNegativeDayBalance) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
                         )
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("প্রারম্ভিক স্টক", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${BanglaNumberFormatter.formatNumber(stockRecord?.openingStock ?: 0)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
-                    }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("আজকের উৎপাদন (+)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -411,20 +404,6 @@ fun DailyReportDetailScreen(
                             Text("স্টক সমন্বয়", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${if (report.stockAdjustment > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(report.stockAdjustment)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                         }
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("ঔষধ খরচ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            text = if (report.medicineCost > 0) BanglaNumberFormatter.formatCurrency(report.medicineCost) else "০ ৳",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                        )
                     }
                 }
             }

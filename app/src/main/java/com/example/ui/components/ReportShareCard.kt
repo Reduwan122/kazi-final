@@ -559,15 +559,9 @@ fun DailyReportShareDialog(
             isHighlighted = true
         ),
         ShareCardMetric(
-            icon = Icons.Default.MedicalServices,
-            label = "ওষুধ খরচ",
-            value = BanglaNumberFormatter.formatCurrency(report.medicineCost),
-            unit = "টাকা"
-        ),
-        ShareCardMetric(
             icon = Icons.Default.Inventory2,
-            label = "বর্তমান স্টক",
-            value = BanglaNumberFormatter.formatNumber(report.currentStock),
+            label = "দিনের উদ্বৃত্ত",
+            value = "${if (report.eggProduction - report.eggSold - report.otherStockOut + report.otherStockIn + report.stockAdjustment > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(report.eggProduction - report.eggSold - report.otherStockOut + report.otherStockIn + report.stockAdjustment)}",
             unit = "ডিম"
         ),
         ShareCardMetric(
@@ -579,6 +573,7 @@ fun DailyReportShareDialog(
         )
     )
 
+    val dayEggBalance = report.eggProduction - report.eggSold - report.otherStockOut + report.otherStockIn + report.stockAdjustment
     val textSummary = buildString {
         append("কাজী এগ্রোটেক - দৈনিক রিপোর্ট সারাংশ\n")
         append("তারিখ: ${BanglaNumberFormatter.formatBanglaDate(report.date)}\n")
@@ -586,8 +581,7 @@ fun DailyReportShareDialog(
         append("সুস্থ মুরগি: ${BanglaNumberFormatter.formatNumber(report.currentBirds)} টি\n")
         append("ডিম বিক্রয়: ${BanglaNumberFormatter.formatNumber(report.eggSold)} টি (দর: ${BanglaNumberFormatter.formatDecimal(report.eggPrice)} ৳)\n")
         append("মোট বিক্রয়: ${BanglaNumberFormatter.formatCurrency(report.totalSale)}\n")
-        append("ওষুধ খরচ: ${BanglaNumberFormatter.formatCurrency(report.medicineCost)}\n")
-        append("বর্তমান স্টক: ${BanglaNumberFormatter.formatNumber(report.currentStock)} ডিম\n")
+        append("দিনের ডিম উদ্বৃত্ত: ${if (dayEggBalance > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(dayEggBalance)} ডিম\n")
         append("মর্টালিটি: ${BanglaNumberFormatter.formatNumber(report.deadBirds)} টি\n")
         if (report.remarks.isNotBlank()) {
             append("মন্তব্য: ${report.remarks}")

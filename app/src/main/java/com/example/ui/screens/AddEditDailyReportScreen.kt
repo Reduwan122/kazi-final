@@ -86,7 +86,6 @@ fun AddEditDailyReportScreen(
     var eggProductionText by remember { mutableStateOf("") }
     var eggSoldText by remember { mutableStateOf("") }
     var eggPriceText by remember { mutableStateOf("10.50") }
-    var medicineCostText by remember { mutableStateOf("") }
     var otherStockInText by remember { mutableStateOf("") }
     var otherStockOutText by remember { mutableStateOf("") }
     var stockAdjustmentText by remember { mutableStateOf("") }
@@ -109,7 +108,6 @@ fun AddEditDailyReportScreen(
                 eggProductionText = existing.eggProduction.toString()
                 eggSoldText = existing.eggSold.toString()
                 eggPriceText = existing.eggPrice.toString()
-                medicineCostText = if (existing.medicineCost > 0) existing.medicineCost.toString() else ""
                 otherStockInText = if (existing.otherStockIn > 0) existing.otherStockIn.toString() else ""
                 otherStockOutText = if (existing.otherStockOut > 0) existing.otherStockOut.toString() else ""
                 stockAdjustmentText = if (existing.stockAdjustment != 0) existing.stockAdjustment.toString() else ""
@@ -131,20 +129,11 @@ fun AddEditDailyReportScreen(
     val parsedProduction = eggProductionText.toIntOrNull() ?: 0
     val parsedSold = eggSoldText.toIntOrNull() ?: 0
     val parsedPrice = eggPriceText.toDoubleOrNull() ?: 0.0
-    val parsedMedicine = medicineCostText.toDoubleOrNull() ?: 0.0
     val parsedOtherIn = otherStockInText.toIntOrNull() ?: 0
     val parsedOtherOut = otherStockOutText.toIntOrNull() ?: 0
     val parsedAdjustment = stockAdjustmentText.toIntOrNull() ?: 0
 
     val liveTotalSale = parsedSold * parsedPrice
-
-    // Central Opening & Closing Stock Calculation
-    val liveOpeningStock = remember(dailyReports, date, reportId) {
-        viewModel.getOpeningStockForDate(date, excludeReportId = reportId)
-    }
-    val liveEggClosingStock = liveOpeningStock + parsedProduction - parsedSold - parsedOtherOut + parsedOtherIn + parsedAdjustment
-    val isNegativeStock = liveEggClosingStock < 0
-    val shortageAmount = if (isNegativeStock) -liveEggClosingStock else 0
 
     // Calendar Picker Dialog
     val calendar = Calendar.getInstance()
@@ -370,15 +359,18 @@ fun AddEditDailyReportScreen(
                 }
             }
 
-            // Central Live Egg Stock Calculation Card (ডিম স্টক হিসাব)
+            // Day's Net Egg Balance Preview Card (দিনের ডিম ব্যালেন্স / উদ্বৃত্ত)
+            val dayEggBalance = parsedProduction - parsedSold - parsedOtherOut + parsedOtherIn + parsedAdjustment
+            val isNegativeDayBalance = dayEggBalance < 0
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isNegativeStock) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                    containerColor = if (isNegativeDayBalance) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
                     else MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
-                border = if (isNegativeStock) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
+                border = if (isNegativeDayBalance) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
             ) {
                 Column(
                     modifier = Modifier
@@ -394,13 +386,13 @@ fun AddEditDailyReportScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Inventory2,
-                                contentDescription = "Egg Stock",
-                                tint = if (isNegativeStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                contentDescription = "Day Egg Balance",
+                                tint = if (isNegativeDayBalance) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "ডিম স্টক হিসাব (কেন্দ্রীয় ইঞ্জিন)",
+                                text = "দিনের ডিম ব্যালেন্স (উদ্বৃত্ত)",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -409,23 +401,15 @@ fun AddEditDailyReportScreen(
                         }
 
                         Text(
-                            text = if (isNegativeStock) "${BanglaNumberFormatter.formatNumber(liveEggClosingStock)} টি" else "${BanglaNumberFormatter.formatNumber(liveEggClosingStock)} টি",
+                            text = "${if (dayEggBalance > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(dayEggBalance)} টি",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (isNegativeStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                color = if (isNegativeDayBalance) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
                         )
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("প্রারম্ভিক স্টক:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${BanglaNumberFormatter.formatNumber(liveOpeningStock)} টি", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
-                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -464,7 +448,7 @@ fun AddEditDailyReportScreen(
                         }
                     }
 
-                    if (isNegativeStock) {
+                    if (isNegativeDayBalance) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -479,7 +463,7 @@ fun AddEditDailyReportScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "সতর্কতা: উপলব্ধ স্টকের চেয়ে ${BanglaNumberFormatter.formatNumber(shortageAmount)} টি বেশি বিক্রয় হিসেবে উল্লেখ করা হয়েছে।",
+                                text = "আজকের উৎপাদনের চেয়ে ${BanglaNumberFormatter.formatNumber(-dayEggBalance)} টি বেশি বিক্রয় হয়েছে।",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.Bold
@@ -570,60 +554,27 @@ fun AddEditDailyReportScreen(
                 }
             }
 
-            // Egg Price & Medicine Cost
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "ডিমের দর (টাকা)",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+            // Egg Price Field (ডিমের দর)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "ডিমের দর (প্রতি পিস টাকা)",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    OutlinedTextField(
-                        value = eggPriceText,
-                        onValueChange = {
-                            eggPriceText = BanglaNumberFormatter.toEnglishDigits(it)
-                            validationError = null
-                        },
-                        placeholder = { Text("১১.০০") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth().testTag("field_egg_price")
-                    )
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "ঔষধ খরচ (টাকা)",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                    OutlinedTextField(
-                        value = medicineCostText,
-                        onValueChange = {
-                            medicineCostText = BanglaNumberFormatter.toEnglishDigits(it)
-                            validationError = null
-                        },
-                        placeholder = { Text("০") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth().testTag("field_medicine_cost")
-                    )
-                }
+                )
+                OutlinedTextField(
+                    value = eggPriceText,
+                    onValueChange = {
+                        eggPriceText = BanglaNumberFormatter.toEnglishDigits(it)
+                        validationError = null
+                    },
+                    placeholder = { Text("১১.০০") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("field_egg_price")
+                )
             }
 
             // Auto Calculation Card 2: Total Sale
@@ -741,7 +692,7 @@ fun AddEditDailyReportScreen(
                             eggProduction = parsedProduction,
                             eggSold = parsedSold,
                             eggPrice = parsedPrice,
-                            medicineCost = parsedMedicine,
+                            medicineCost = 0.0,
                             otherStockIn = parsedOtherIn,
                             otherStockOut = parsedOtherOut,
                             stockAdjustment = parsedAdjustment,

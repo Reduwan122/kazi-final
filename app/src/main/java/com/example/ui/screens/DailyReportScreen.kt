@@ -423,19 +423,7 @@ fun DailyReportScreen(
                                     Text(
                                         text = "মোট বিক্রয় (৳)",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary),
-                                        modifier = Modifier.width(105.dp),
-                                        textAlign = TextAlign.End
-                                    )
-                                    Text(
-                                        text = "ঔষধ (৳)",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        modifier = Modifier.width(80.dp),
-                                        textAlign = TextAlign.End
-                                    )
-                                    Text(
-                                        text = "ডিম স্টক",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        modifier = Modifier.width(85.dp).padding(end = 14.dp),
+                                        modifier = Modifier.width(115.dp).padding(end = 14.dp),
                                         textAlign = TextAlign.End
                                     )
                                 }
@@ -513,26 +501,7 @@ fun DailyReportScreen(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
                                         ),
-                                        modifier = Modifier.width(105.dp),
-                                        textAlign = TextAlign.End
-                                    )
-                                    Text(
-                                        text = if (report.medicineCost > 0) BanglaNumberFormatter.formatCurrency(report.medicineCost) else "০",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.width(80.dp),
-                                        textAlign = TextAlign.End
-                                    )
-                                    val stockRecord = stockLedger[report.date]
-                                    val rowStock = stockRecord?.closingStock ?: report.currentStock
-                                    val isNegativeRowStock = rowStock < 0
-
-                                    Text(
-                                        text = BanglaNumberFormatter.formatNumber(rowStock),
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isNegativeRowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        modifier = Modifier.width(85.dp).padding(end = 14.dp),
+                                        modifier = Modifier.width(115.dp).padding(end = 14.dp),
                                         textAlign = TextAlign.End
                                     )
                                 }
@@ -596,22 +565,7 @@ fun DailyReportScreen(
                                             color = MaterialTheme.colorScheme.primary,
                                             fontSize = 15.sp
                                         ),
-                                        modifier = Modifier.width(105.dp),
-                                        textAlign = TextAlign.End
-                                    )
-                                    Text(
-                                        text = BanglaNumberFormatter.formatCurrency(totalMedicine),
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        modifier = Modifier.width(80.dp),
-                                        textAlign = TextAlign.End
-                                    )
-                                    Text(
-                                        text = if (periodClosingStock != null) BanglaNumberFormatter.formatNumber(periodClosingStock) else "-",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = if ((periodClosingStock ?: 0) < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        modifier = Modifier.width(85.dp).padding(end = 14.dp),
+                                        modifier = Modifier.width(115.dp).padding(end = 14.dp),
                                         textAlign = TextAlign.End
                                     )
                                 }

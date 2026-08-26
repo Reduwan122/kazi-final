@@ -743,8 +743,10 @@ class PoultryRepository(
         val index = currentList.indexOfFirst { it.id == finalReport.id }
         if (index >= 0) currentList[index] = finalReport else currentList.add(finalReport)
 
+        val baselineStock = _farmProfile.value.initialOpeningStock
+
         // Recalculate full stock ledger across all records
-        val ledger = StockCalculationService.calculateSequentialStockLedger(currentList)
+        val ledger = StockCalculationService.calculateSequentialStockLedger(currentList, baselineStock)
         val recalculatedList = currentList.map { r ->
             val correctStock = ledger[r.date]?.closingStock ?: r.currentStock
             if (r.currentStock != correctStock) r.copy(currentStock = correctStock) else r
@@ -778,7 +780,8 @@ class PoultryRepository(
         val currentList = _allDailyReports.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == report.id }
         if (index >= 0) currentList[index] = report else currentList.add(0, report)
-        val ledger = StockCalculationService.calculateSequentialStockLedger(currentList)
+        val baselineStock = _farmProfile.value.initialOpeningStock
+        val ledger = StockCalculationService.calculateSequentialStockLedger(currentList, baselineStock)
         _allDailyReports.value = currentList.map { r ->
             val correctStock = ledger[r.date]?.closingStock ?: r.currentStock
             if (r.currentStock != correctStock) r.copy(currentStock = correctStock) else r
@@ -796,7 +799,8 @@ class PoultryRepository(
 
     suspend fun deleteDailyReportById(id: Long) = withContext(Dispatchers.IO) {
         val remaining = _allDailyReports.value.filter { it.id != id }
-        val ledger = StockCalculationService.calculateSequentialStockLedger(remaining)
+        val baselineStock = _farmProfile.value.initialOpeningStock
+        val ledger = StockCalculationService.calculateSequentialStockLedger(remaining, baselineStock)
         val recalculatedList = remaining.map { r ->
             val correctStock = ledger[r.date]?.closingStock ?: r.currentStock
             if (r.currentStock != correctStock) r.copy(currentStock = correctStock) else r
@@ -818,7 +822,8 @@ class PoultryRepository(
     }
 
     suspend fun getPreviousStock(date: String): Int = withContext(Dispatchers.IO) {
-        StockCalculationService.calculateOpeningStockForDate(_allDailyReports.value, date)
+        val baselineStock = _farmProfile.value.initialOpeningStock
+        StockCalculationService.calculateOpeningStockForDate(_allDailyReports.value, date, baselineStock)
     }
 
     suspend fun getLatestFlockCount(): Int = withContext(Dispatchers.IO) {
@@ -914,9 +919,9 @@ class PoultryRepository(
     suspend fun exportDailyReportsToCsv(reports: List<DailyReportEntity>): File = withContext(Dispatchers.IO) {
         val file = File(context.cacheDir, "kazi_agrotech_daily_reports_${System.currentTimeMillis()}.csv")
         FileWriter(file).use { writer ->
-            writer.append("তারিখ,বর্তমান মুরগী,মৃত মুরগী,ডিম উৎপাদন,বিক্রয় (ডিম),ডিমের দাম (৳),মোট বিক্রয় (৳),ঔষধ খরচ (৳),বর্তমান স্টক,মন্তব্য\n")
+            writer.append("তারিখ,বর্তমান মুরগী,মৃত মুরগী,ডিম উৎপাদন,বিক্রয় (ডিম),ডিমের দাম (৳),মোট বিক্রয় (৳),মন্তব্য\n")
             for (r in reports) {
-                writer.append("${r.date},${r.currentBirds},${r.deadBirds},${r.eggProduction},${r.eggSold},${r.eggPrice},${r.totalSale},${r.medicineCost},${r.currentStock},\"${r.remarks.replace("\"", "\"\"")}\"\n")
+                writer.append("${r.date},${r.currentBirds},${r.deadBirds},${r.eggProduction},${r.eggSold},${r.eggPrice},${r.totalSale},\"${r.remarks.replace("\"", "\"\"")}\"\n")
             }
         }
         file
@@ -951,7 +956,8 @@ class PoultryRepository(
 
         // 1. Recalculate complete sequential stock ledger from source transactions
         val sortedReports = content.dailyReports.sortedBy { it.date }
-        val stockLedger = StockCalculationService.calculateSequentialStockLedger(sortedReports)
+        val baselineStock = content.farmProfile?.initialOpeningStock ?: _farmProfile.value.initialOpeningStock
+        val stockLedger = StockCalculationService.calculateSequentialStockLedger(sortedReports, baselineStock)
 
         val finalizedReports = sortedReports.map { report ->
             val ledgerRecord = stockLedger[report.date]

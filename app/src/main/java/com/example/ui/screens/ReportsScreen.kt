@@ -136,13 +136,14 @@ fun ReportsScreen(
     val totalExpense = filteredExpenses.sumOf { it.totalExpense }
     val netProfit = totalSale - totalExpense
 
-    val periodStockSummary = remember(dailyReports, selectedMonthFilter) {
+    val periodStockSummary = remember(dailyReports, selectedMonthFilter, farmProfile) {
+        val baseline = farmProfile.initialOpeningStock
         if (selectedMonthFilter == "সকল রেকর্ড") {
-            StockCalculationService.calculateStockForPeriod(dailyReports, null, null)
+            StockCalculationService.calculateStockForPeriod(dailyReports, null, null, baseline)
         } else {
             val startDate = "$selectedMonthFilter-01"
             val endDate = "$selectedMonthFilter-31"
-            StockCalculationService.calculateStockForPeriod(dailyReports, startDate, endDate)
+            StockCalculationService.calculateStockForPeriod(dailyReports, startDate, endDate, baseline)
         }
     }
 
@@ -179,6 +180,49 @@ fun ReportsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
             Spacer(modifier = Modifier.height(4.dp))
+
+            // Negative Stock Warning Banner
+            if (periodStockSummary.hasNegativeStockWarning) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFFFFF3E0))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Warning",
+                            tint = androidx.compose.ui.graphics.Color(0xFFE65100),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "⚠️ নেগেটিভ স্টক সনাক্ত হয়েছে",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = androidx.compose.ui.graphics.Color(0xFFE65100)
+                                )
+                            )
+                            Text(
+                                text = "তারিখ: ${periodStockSummary.negativeStockDates.joinToString(", ") { BanglaNumberFormatter.formatShortDate(it) }}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = androidx.compose.ui.graphics.Color(0xFFBF360C)
+                                )
+                            )
+                            Text(
+                                text = "উৎপাদন, বিক্রয় বা স্টক সমন্বয় পরীক্ষা করুন।",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = androidx.compose.ui.graphics.Color(0xFF5D4037)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
 
             // Month Filter & Actions Card
             Card(
@@ -585,6 +629,8 @@ fun ReportsScreen(
             title = title,
             farmProfile = farmProfile,
             dailyReports = if (selectedCategory == ReportCategory.EXPENSE) emptyList() else filteredDaily,
+            allReports = dailyReports,
+            baselineStock = farmProfile.initialOpeningStock,
             expenses = if (selectedCategory == ReportCategory.EXPENSE) filteredExpenses else emptyList(),
             onDismiss = { showPdfPreviewModal = false }
         )

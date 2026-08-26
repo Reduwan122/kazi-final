@@ -141,8 +141,11 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
             )
         )
 
-        stockLedger = combine(dailyReports) { reportsList ->
-            StockCalculationService.calculateSequentialStockLedger(reportsList[0])
+        stockLedger = combine(dailyReports, farmProfile) { reportsList, profile ->
+            StockCalculationService.calculateSequentialStockLedger(
+                reportsList,
+                baselineInitialStock = profile.initialOpeningStock
+            )
         }.stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
@@ -151,9 +154,10 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
 
         dashboardStats = combine(
             dailyReports,
-            expenses
-        ) { reportsList, expensesList ->
-            calculateDashboardStats(reportsList, expensesList)
+            expenses,
+            farmProfile
+        ) { reportsList, expensesList, profile ->
+            calculateDashboardStats(reportsList, expensesList, profile.initialOpeningStock)
         }.stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
@@ -171,7 +175,8 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
 
     private fun calculateDashboardStats(
         reportsList: List<DailyReportEntity>,
-        expensesList: List<MonthlyExpenseEntity>
+        expensesList: List<MonthlyExpenseEntity>,
+        baselineInitialStock: Int = 0
     ): DashboardStats {
         val todayStr = BanglaNumberFormatter.getCurrentDateFormatted()
 
@@ -186,9 +191,9 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         val todayProduction = todayReport?.eggProduction ?: 0
         val todaySale = todayReport?.totalSale ?: 0.0
         val todayExp = todayExpense?.totalExpense ?: 0.0
-        
-        // Use central stock engine for 100% accurate, derived closing stock
-        val eggStock = StockCalculationService.calculateCurrentStock(reportsList)
+
+        // Use central stock engine with correct baseline for 100% accurate closing stock
+        val eggStock = StockCalculationService.calculateCurrentStock(reportsList, baselineInitialStock)
 
         // Current Month total calculations
         val currentMonthPrefix = todayStr.take(7) // "YYYY-MM"
@@ -235,7 +240,8 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val totalSale = eggSold * eggPrice
                 val priorReports = dailyReports.value.filter { it.id != id }
-                val openingStock = StockCalculationService.calculateOpeningStockForDate(priorReports, date)
+                val baseline = farmProfile.value.initialOpeningStock
+                val openingStock = StockCalculationService.calculateOpeningStockForDate(priorReports, date, baseline)
                 val closingStock = openingStock + eggProduction - eggSold - otherStockOut + otherStockIn + stockAdjustment
 
                 val entity = DailyReportEntity(
@@ -276,14 +282,16 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
      */
     fun getOpeningStockForDate(targetDate: String, excludeReportId: Long = 0L): Int {
         val list = if (excludeReportId > 0L) dailyReports.value.filter { it.id != excludeReportId } else dailyReports.value
-        return StockCalculationService.calculateOpeningStockForDate(list, targetDate)
+        val baseline = farmProfile.value.initialOpeningStock
+        return StockCalculationService.calculateOpeningStockForDate(list, targetDate, baseline)
     }
 
     /**
      * Retrieves the stock summary for a specific period (e.g. month or date range).
      */
     fun getStockSummaryForPeriod(startDate: String?, endDate: String?): StockSummary {
-        return StockCalculationService.calculateStockForPeriod(dailyReports.value, startDate, endDate)
+        val baseline = farmProfile.value.initialOpeningStock
+        return StockCalculationService.calculateStockForPeriod(dailyReports.value, startDate, endDate, baseline)
     }
 
     fun deleteDailyReport(id: Long) {
@@ -390,6 +398,24 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
                     logoEmoji = emoji
                 )
             )
+        }
+    }
+
+    /**
+     * Updates the baseline initial opening stock (pre-history closing stock) in farm profile.
+     * This is the closing stock of a date before the first daily report was recorded.
+     * Example: if the first daily report is 01/08, set initialOpeningStock = 729 (closing stock of 31/07).
+     */
+    fun updateInitialOpeningStock(stock: Int, date: String) {
+        viewModelScope.launch {
+            val current = farmProfile.value
+            repository.updateFarmProfile(
+                current.copy(
+                    initialOpeningStock = stock,
+                    initialOpeningDate = date
+                )
+            )
+            SnackbarController.showMessage("প্রারম্ভিক স্টক আপডেট করা হয়েছে: $stock ডিম")
         }
     }
 
