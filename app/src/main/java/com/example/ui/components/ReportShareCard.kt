@@ -499,7 +499,7 @@ fun ReportShareDialog(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ContentCopy,
+                            imageVector = Icons.Default.TextSnippet,
                             contentDescription = "Share Text",
                             modifier = Modifier.size(18.dp)
                         )
