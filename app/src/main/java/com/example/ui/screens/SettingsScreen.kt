@@ -616,6 +616,21 @@ fun SettingsScreen(
                         }
                     )
 
+                    // Google Drive Backup & Restore
+                    val googleAccountEmail by viewModel.googleAccountEmail.collectAsState()
+                    val lastBackupTimestamp by viewModel.lastBackupTimestamp.collectAsState()
+
+                    SettingsRowItem(
+                        icon = Icons.Default.CloudUpload,
+                        title = "গুগল ড্রাইভ ব্যাকআপ ও রিস্টোর",
+                        subtitle = if (googleAccountEmail != null) {
+                            "কানেক্টেড ($googleAccountEmail) • ${if (lastBackupTimestamp > 0) "সর্বশেষ: " + viewModel.driveBackupManager.formatDateFromMillis(lastBackupTimestamp) else "ব্যাকআপ নেওয়া হয়নি"}"
+                        } else {
+                            "গুগল ড্রাইভ ক্লাউড ব্যাকআপ, এনক্রিপশন ও রিস্টোর"
+                        },
+                        onClick = onNavigateToBackupRestore
+                    )
+
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                     // Security
@@ -1116,7 +1131,7 @@ fun SettingsScreen(
     }
 
     // Initial Baseline Stock Setup Dialog (Admin Only)
-    if (showInitialStockDialog) {
+    if (showInitialStockDialog && isAdmin) {
         var stockInput by remember { mutableStateOf(if (farmProfile.initialOpeningStock > 0) farmProfile.initialOpeningStock.toString() else "") }
         var dateInput by remember { mutableStateOf(farmProfile.initialOpeningDate) }
 

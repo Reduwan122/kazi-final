@@ -309,6 +309,18 @@ class PoultryRepository(
     private fun setupFirebaseRealtimeListeners() {
         val reference = dbRef ?: return
         try {
+            // Enable offline disk sync for instantaneous UI data loading
+            try {
+                reference.child("daily_reports").keepSynced(true)
+                reference.child("monthly_expenses").keepSynced(true)
+                reference.child("farm_profile").keepSynced(true)
+                reference.child("role_permissions").keepSynced(true)
+                reference.child("users").keepSynced(true)
+                reference.child(BLOCKED_USERS_NODE).keepSynced(true)
+            } catch (e: Exception) {
+                Log.w(TAG, "keepSynced error: ${e.message}")
+            }
+
             // Listen to All Registered Users for Admin approval & management
             reference.child("users").addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
