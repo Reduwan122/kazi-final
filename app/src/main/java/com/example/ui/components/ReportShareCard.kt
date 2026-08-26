@@ -446,7 +446,6 @@ fun ReportShareDialog(
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "image/png"
                                         putExtra(Intent.EXTRA_STREAM, uri)
-                                        putExtra(Intent.EXTRA_TEXT, textSummary)
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
                                     context.startActivity(
@@ -500,16 +499,12 @@ fun ReportShareDialog(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.TextSnippet,
+                            imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Share Text",
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "টেক্সট",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp
-                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("টেক্সট শেয়ার")
                     }
                 }
             }
@@ -559,12 +554,6 @@ fun DailyReportShareDialog(
             isHighlighted = true
         ),
         ShareCardMetric(
-            icon = Icons.Default.Inventory2,
-            label = "দিনের উদ্বৃত্ত",
-            value = "${if (report.eggProduction - report.eggSold - report.otherStockOut + report.otherStockIn + report.stockAdjustment > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(report.eggProduction - report.eggSold - report.otherStockOut + report.otherStockIn + report.stockAdjustment)}",
-            unit = "ডিম"
-        ),
-        ShareCardMetric(
             icon = Icons.Default.Warning,
             label = "মর্টালিটি",
             value = BanglaNumberFormatter.formatNumber(report.deadBirds),
@@ -573,7 +562,6 @@ fun DailyReportShareDialog(
         )
     )
 
-    val dayEggBalance = report.eggProduction - report.eggSold - report.otherStockOut + report.otherStockIn + report.stockAdjustment
     val textSummary = buildString {
         append("কাজী এগ্রোটেক - দৈনিক রিপোর্ট সারাংশ\n")
         append("তারিখ: ${BanglaNumberFormatter.formatBanglaDate(report.date)}\n")
@@ -581,7 +569,6 @@ fun DailyReportShareDialog(
         append("সুস্থ মুরগি: ${BanglaNumberFormatter.formatNumber(report.currentBirds)} টি\n")
         append("ডিম বিক্রয়: ${BanglaNumberFormatter.formatNumber(report.eggSold)} টি (দর: ${BanglaNumberFormatter.formatDecimal(report.eggPrice)} ৳)\n")
         append("মোট বিক্রয়: ${BanglaNumberFormatter.formatCurrency(report.totalSale)}\n")
-        append("দিনের ডিম উদ্বৃত্ত: ${if (dayEggBalance > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(dayEggBalance)} ডিম\n")
         append("মর্টালিটি: ${BanglaNumberFormatter.formatNumber(report.deadBirds)} টি\n")
         if (report.remarks.isNotBlank()) {
             append("মন্তব্য: ${report.remarks}")
