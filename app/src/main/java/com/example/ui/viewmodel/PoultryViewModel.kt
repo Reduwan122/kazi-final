@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
+import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -53,6 +54,7 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     val rolePermissions: StateFlow<Map<String, com.example.data.local.RolePermissionConfig>>
     val dashboardStats: StateFlow<DashboardStats>
     val stockLedger: StateFlow<Map<String, DailyStockRecord>>
+    val syncStatus = MutableStateFlow("ফায়ারবেস ক্লাউড সিঙ্ক সফল")
 
     // Google Drive Backup StateFlows
     private val _googleAccountEmail = MutableStateFlow<String?>(driveBackupManager.getConnectedAccount()?.email)

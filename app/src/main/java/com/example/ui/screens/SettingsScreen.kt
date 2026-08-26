@@ -99,7 +99,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val haptics = rememberHaptics()
     val farmProfile by viewModel.farmProfile.collectAsState()
-    val syncStatus by viewModel.syncStatus.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val allUsers by viewModel.allUsers.collectAsState()
     val dailyReports by viewModel.dailyReports.collectAsState()

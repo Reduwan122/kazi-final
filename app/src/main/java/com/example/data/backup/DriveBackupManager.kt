@@ -554,14 +554,14 @@ class DriveBackupManager(private val context: Context) {
 
     fun formatDateFromMillis(millis: Long): String {
         if (millis <= 0L) return "কখনও নয়"
-        val sdf = SimpleDateFormat("dd MMM yyyy", Locale.US)
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         return BanglaNumberFormatter.formatBanglaDate(sdf.format(Date(millis)))
     }
 
     fun formatTimeFromMillis(millis: Long): String {
         if (millis <= 0L) return ""
         val sdf = SimpleDateFormat("hh:mm a", Locale.US)
-        return BanglaNumberFormatter.formatNumber(sdf.format(Date(millis)))
+        return BanglaNumberFormatter.toBanglaDigits(sdf.format(Date(millis)))
     }
 }
 
