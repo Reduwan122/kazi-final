@@ -618,23 +618,6 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-                    // Google Drive Backup & Restore
-                    val googleAccountEmail by viewModel.googleAccountEmail.collectAsState()
-                    val lastBackupTimestamp by viewModel.lastBackupTimestamp.collectAsState()
-
-                    SettingsRowItem(
-                        icon = Icons.Default.CloudUpload,
-                        title = "গুগল ড্রাইভ ব্যাকআপ ও রিস্টোর",
-                        subtitle = if (googleAccountEmail != null) {
-                            "কানেক্টেড ($googleAccountEmail) • ${if (lastBackupTimestamp > 0) "সর্বশেষ: " + viewModel.driveBackupManager.formatDateFromMillis(lastBackupTimestamp) else "ব্যাকআপ নেওয়া হয়নি"}"
-                        } else {
-                            "গুগল ড্রাইভ ক্লাউড ব্যাকআপ, এনক্রিপশন ও রিস্টোর"
-                        },
-                        onClick = onNavigateToBackupRestore
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
                     // Security
                     SettingsRowItem(
                         icon = Icons.Default.Lock,
@@ -642,48 +625,6 @@ fun SettingsScreen(
                         subtitle = "পাসওয়ার্ড পরিবর্তন ও এক্সেস সেটিংস",
                         onClick = { showChangePasswordDialog = true }
                     )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                    // Backup & Restore
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Icon(
-                                imageVector = Icons.Default.CloudSync,
-                                contentDescription = "Auto Backup",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "স্বয়ংক্রিয় ক্লাউড ব্যাকআপ",
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                )
-                                Text(
-                                    text = "অনলাইন ও অফলাইনে ডেটা সংরক্ষণ",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-                        }
-
-                        Switch(
-                            checked = farmProfile.autoBackup,
-                            onCheckedChange = { viewModel.toggleAutoBackup(it) },
-                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
-                        )
-                    }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
