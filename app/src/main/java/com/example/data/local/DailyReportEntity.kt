@@ -13,7 +13,11 @@ data class DailyReportEntity(
     val eggPrice: Double = 0.0, // ডিমের দাম
     val totalSale: Double = 0.0, // মোট বিক্রয় (বিক্রয় × ডিমের দাম)
     val medicineCost: Double = 0.0, // ঔষধ খরচ
-    val currentStock: Int = 0, // বর্তমান স্টক
+    val currentStock: Int = 0, // বর্তমান সমাপনী স্টক
+    val otherStockIn: Int = 0, // অন্যান্য স্টক বৃদ্ধি
+    val otherStockOut: Int = 0, // অন্যান্য স্টক হ্রাস / নষ্ট / ভাঙা
+    val stockAdjustment: Int = 0, // স্টক সমন্বয় (Adjustment)
+    val adjustmentReason: String = "", // সমন্বয়ের কারণ
     val remarks: String = "", // মন্তব্য
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

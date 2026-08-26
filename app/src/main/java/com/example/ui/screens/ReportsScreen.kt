@@ -23,14 +23,17 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Egg
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.TableView
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import com.example.domain.StockCalculationService
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -131,6 +134,16 @@ fun ReportsScreen(
     val currentBirds = filteredDaily.lastOrNull()?.currentBirds ?: 0
     val totalExpense = filteredExpenses.sumOf { it.totalExpense }
     val netProfit = totalSale - totalExpense
+
+    val periodStockSummary = remember(dailyReports, selectedMonthFilter) {
+        if (selectedMonthFilter == "সকল রেকর্ড") {
+            StockCalculationService.calculateStockForPeriod(dailyReports, null, null)
+        } else {
+            val startDate = "$selectedMonthFilter-01"
+            val endDate = "$selectedMonthFilter-31"
+            StockCalculationService.calculateStockForPeriod(dailyReports, startDate, endDate)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -375,6 +388,120 @@ fun ReportsScreen(
                         color = if (netProfit >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f)
                     )
+                }
+            }
+
+            // Stock Reconciliation Card (ডিম স্টক সমন্বয় ও সমাপনী হিসাব)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = if (periodStockSummary.hasNegativeStockWarning) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Inventory2,
+                                contentDescription = "Stock Reconciliation",
+                                tint = if (periodStockSummary.hasNegativeStockWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ডিম স্টক সমীকরণ (সেন্ট্রাল ইঞ্জিন)",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        Text(
+                            text = "${BanglaNumberFormatter.formatNumber(periodStockSummary.closingStock)} পিস",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (periodStockSummary.closingStock < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("প্রারম্ভিক স্টক (Opening Stock)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${BanglaNumberFormatter.formatNumber(periodStockSummary.openingStock)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("মোট ডিম উৎপাদন (+)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("+ ${BanglaNumberFormatter.formatNumber(periodStockSummary.totalProduction)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary))
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("মোট ডিম বিক্রয় (-)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("- ${BanglaNumberFormatter.formatNumber(periodStockSummary.totalSales)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error))
+                    }
+
+                    if (periodStockSummary.totalOtherIn > 0 || periodStockSummary.totalOtherOut > 0 || periodStockSummary.totalAdjustment != 0) {
+                        if (periodStockSummary.totalOtherIn > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("অন্যান্য বৃদ্ধি (+)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("+ ${BanglaNumberFormatter.formatNumber(periodStockSummary.totalOtherIn)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                            }
+                        }
+                        if (periodStockSummary.totalOtherOut > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("অন্যান্য হ্রাস / নষ্ট (-)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("- ${BanglaNumberFormatter.formatNumber(periodStockSummary.totalOtherOut)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                            }
+                        }
+                        if (periodStockSummary.totalAdjustment != 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("স্টক সমন্বয়", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${if (periodStockSummary.totalAdjustment > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(periodStockSummary.totalAdjustment)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("সমাপনী স্টক = প্রারম্ভিক + উৎপাদন - বিক্রয়", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = "${BanglaNumberFormatter.formatNumber(periodStockSummary.closingStock)} পিস",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (periodStockSummary.closingStock < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+
+                    if (periodStockSummary.hasNegativeStockWarning) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Warning",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "সতর্কতা: এই সময়কালের মধ্যে অপর্যাপ্ত স্টক রেকর্ড রয়েছে।",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
                 }
             }
 

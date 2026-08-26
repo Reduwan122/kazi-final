@@ -35,6 +35,7 @@ import com.example.ui.components.SnackbarBottomInset
 import com.example.ui.screens.AddEditDailyReportScreen
 import com.example.ui.screens.AddEditMonthlyExpenseScreen
 import com.example.ui.screens.AdminUserManagementScreen
+import com.example.ui.screens.BackupRestoreScreen
 import com.example.ui.screens.DailyReportDetailScreen
 import com.example.ui.screens.DailyReportScreen
 import com.example.ui.screens.DashboardScreen
@@ -119,6 +120,7 @@ fun MainAppNavigation(viewModel: PoultryViewModel) {
                 onNavigateToAdmin = { navController.navigate("admin_management") },
                 onNavigateToRolePermissions = { role -> navController.navigate("role_permissions/$role") },
                 onNavigateToProfile = { navController.navigate("user_profile") },
+                onNavigateToBackupRestore = { navController.navigate("backup_restore") },
                 onLogout = {
                     navController.navigate("login") {
                         popUpTo("main") { inclusive = true }
@@ -244,6 +246,13 @@ fun MainAppNavigation(viewModel: PoultryViewModel) {
                 }
             )
         }
+
+        composable("backup_restore") {
+            BackupRestoreScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -259,6 +268,7 @@ fun MainContainerScreen(
     onNavigateToAdmin: () -> Unit,
     onNavigateToRolePermissions: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit,
+    onNavigateToBackupRestore: () -> Unit = {},
     onLogout: () -> Unit
 ) {
     var currentTab by remember { mutableStateOf(BottomNavTab.DASHBOARD) }
@@ -334,6 +344,7 @@ fun MainContainerScreen(
                     onNavigateToAdmin = onNavigateToAdmin,
                     onNavigateToRolePermissions = onNavigateToRolePermissions,
                     onNavigateToProfile = onNavigateToProfile,
+                    onNavigateToBackupRestore = onNavigateToBackupRestore,
                     onOpenNotifications = { showFarmNotifications = true },
                     onLogout = onLogout
                 )

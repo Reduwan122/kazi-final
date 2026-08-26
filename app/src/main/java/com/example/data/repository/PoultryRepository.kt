@@ -3,11 +3,13 @@ package com.example.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.example.data.backup.BackupDataContent
 import com.example.data.local.DailyReportEntity
 import com.example.data.local.FarmProfileEntity
 import com.example.data.local.MonthlyExpenseEntity
 import com.example.data.local.RolePermissionConfig
 import com.example.data.local.UserEntity
+import com.example.domain.StockCalculationService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -737,17 +739,37 @@ class PoultryRepository(
         val targetId = if (report.id <= 0L) System.currentTimeMillis() else report.id
         val finalReport = report.copy(id = targetId, updatedAt = System.currentTimeMillis())
 
+        val currentList = _allDailyReports.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == finalReport.id }
+        if (index >= 0) currentList[index] = finalReport else currentList.add(finalReport)
+
+        // Recalculate full stock ledger across all records
+        val ledger = StockCalculationService.calculateSequentialStockLedger(currentList)
+        val recalculatedList = currentList.map { r ->
+            val correctStock = ledger[r.date]?.closingStock ?: r.currentStock
+            if (r.currentStock != correctStock) r.copy(currentStock = correctStock) else r
+        }.sortedByDescending { it.date }
+
+        _allDailyReports.value = recalculatedList
+
         val reference = dbRef
         if (reference != null) {
             try {
-                reference.child("daily_reports").child(targetId.toString()).setValue(finalReport).await()
+                val updatedPrimary = recalculatedList.find { it.id == targetId } ?: finalReport
+                reference.child("daily_reports").child(targetId.toString()).setValue(updatedPrimary).await()
+
+                // Cascade update any subsequent dates whose stock changed
+                val subsequentUpdated = recalculatedList.filter { it.date > finalReport.date && it.id != targetId }
+                for (sub in subsequentUpdated) {
+                    try {
+                        reference.child("daily_reports").child(sub.id.toString()).child("currentStock").setValue(sub.currentStock)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not cascade update stock for ${sub.date}: ${e.message}")
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving daily report to Firebase: ${e.message}", e)
-                // In case of offline queueing or direct update
-                updateLocalDailyReportsList(finalReport)
             }
-        } else {
-            updateLocalDailyReportsList(finalReport)
         }
         targetId
     }
@@ -756,7 +778,11 @@ class PoultryRepository(
         val currentList = _allDailyReports.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == report.id }
         if (index >= 0) currentList[index] = report else currentList.add(0, report)
-        _allDailyReports.value = currentList.sortedByDescending { it.date }
+        val ledger = StockCalculationService.calculateSequentialStockLedger(currentList)
+        _allDailyReports.value = currentList.map { r ->
+            val correctStock = ledger[r.date]?.closingStock ?: r.currentStock
+            if (r.currentStock != correctStock) r.copy(currentStock = correctStock) else r
+        }.sortedByDescending { it.date }
     }
 
     suspend fun getDailyReportById(id: Long): DailyReportEntity? = withContext(Dispatchers.IO) {
@@ -769,18 +795,30 @@ class PoultryRepository(
     }
 
     suspend fun deleteDailyReportById(id: Long) = withContext(Dispatchers.IO) {
-        try {
-            dbRef?.child("daily_reports")?.child(id.toString())?.removeValue()?.await()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error deleting report from Firebase: ${e.message}", e)
+        val remaining = _allDailyReports.value.filter { it.id != id }
+        val ledger = StockCalculationService.calculateSequentialStockLedger(remaining)
+        val recalculatedList = remaining.map { r ->
+            val correctStock = ledger[r.date]?.closingStock ?: r.currentStock
+            if (r.currentStock != correctStock) r.copy(currentStock = correctStock) else r
+        }.sortedByDescending { it.date }
+
+        _allDailyReports.value = recalculatedList
+
+        val reference = dbRef
+        if (reference != null) {
+            try {
+                reference.child("daily_reports").child(id.toString()).removeValue().await()
+                for (r in recalculatedList) {
+                    reference.child("daily_reports").child(r.id.toString()).child("currentStock").setValue(r.currentStock)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting report from Firebase: ${e.message}", e)
+            }
         }
-        val currentList = _allDailyReports.value.filter { it.id != id }
-        _allDailyReports.value = currentList
     }
 
     suspend fun getPreviousStock(date: String): Int = withContext(Dispatchers.IO) {
-        val sorted = _allDailyReports.value.filter { it.date < date }.sortedByDescending { it.date }
-        sorted.firstOrNull()?.currentStock ?: 0
+        StockCalculationService.calculateOpeningStockForDate(_allDailyReports.value, date)
     }
 
     suspend fun getLatestFlockCount(): Int = withContext(Dispatchers.IO) {
@@ -905,6 +943,52 @@ class PoultryRepository(
             dbRef?.child("role_permissions")?.child(config.roleKey.uppercase())?.setValue(config)?.await()
         } catch (e: Exception) {
             Log.e(TAG, "Error updating role permissions in Firebase: ${e.message}", e)
+        }
+    }
+
+    suspend fun restoreCompleteBackup(content: BackupDataContent) = withContext(Dispatchers.IO) {
+        val reference = dbRef ?: throw Exception("Firebase Realtime Database সংযোগ পাওয়া যায়নি।")
+
+        // 1. Recalculate complete sequential stock ledger from source transactions
+        val sortedReports = content.dailyReports.sortedBy { it.date }
+        val stockLedger = StockCalculationService.calculateSequentialStockLedger(sortedReports)
+
+        val finalizedReports = sortedReports.map { report ->
+            val ledgerRecord = stockLedger[report.date]
+            report.copy(currentStock = ledgerRecord?.closingStock ?: report.currentStock)
+        }
+
+        // 2. Atomic/Batch write to Firebase
+        val updates = mutableMapOf<String, Any?>()
+
+        // Clear and write restored daily_reports
+        updates["daily_reports"] = finalizedReports.associateBy { it.id.toString() }
+
+        // Monthly expenses
+        updates["monthly_expenses"] = content.monthlyExpenses.associateBy { it.id.toString() }
+
+        // Farm profile
+        if (content.farmProfile != null) {
+            updates["farm_profile"] = content.farmProfile
+        }
+
+        // Role permissions
+        if (content.rolePermissions.isNotEmpty()) {
+            updates["role_permissions"] = content.rolePermissions
+        }
+
+        reference.updateChildren(updates).await()
+
+        // 3. Update local state flows
+        _allDailyReports.value = finalizedReports.sortedByDescending { it.date }
+        _allExpenses.value = content.monthlyExpenses.sortedByDescending { it.date }
+        if (content.farmProfile != null) {
+            _farmProfile.value = content.farmProfile
+            saveFarmProfileToPrefs(content.farmProfile)
+        }
+        if (content.rolePermissions.isNotEmpty()) {
+            _rolePermissions.value = content.rolePermissions
+            content.rolePermissions.values.forEach { saveRolePermissionToPrefs(it) }
         }
     }
 }

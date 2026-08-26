@@ -343,35 +343,88 @@ fun DailyReportDetailScreen(
                 }
             }
 
-            // Inventory & Medicine (ঔষধ ও স্টক)
+            // Inventory & Stock Ledger Card (ডিম স্টক হিসাব)
+            val stockLedger by viewModel.stockLedger.collectAsState()
+            val stockRecord = report.let { stockLedger[it.date] }
+            val closingStock = stockRecord?.closingStock ?: report.currentStock
+            val isNegative = closingStock < 0
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = if (isNegative) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("ঔষধ খরচ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                text = BanglaNumberFormatter.formatCurrency(report.medicineCost),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "ডিম স্টক বিবরণ",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${BanglaNumberFormatter.formatNumber(closingStock)} পিস",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
-                        }
+                        )
+                    }
 
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("বর্তমান ডিম স্টক", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                text = "${BanglaNumberFormatter.formatNumber(report.currentStock)} পিস",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("প্রারম্ভিক স্টক", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${BanglaNumberFormatter.formatNumber(stockRecord?.openingStock ?: 0)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("আজকের উৎপাদন (+)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("+ ${BanglaNumberFormatter.formatNumber(report.eggProduction)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary))
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("আজকের বিক্রি (-)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("- ${BanglaNumberFormatter.formatNumber(report.eggSold)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error))
+                    }
+
+                    if (report.otherStockIn > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("অন্যান্য বৃদ্ধি (+)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("+ ${BanglaNumberFormatter.formatNumber(report.otherStockIn)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                         }
+                    }
+
+                    if (report.otherStockOut > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("অন্যান্য হ্রাস / নষ্ট (-)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("- ${BanglaNumberFormatter.formatNumber(report.otherStockOut)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                        }
+                    }
+
+                    if (report.stockAdjustment != 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("স্টক সমন্বয়", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${if (report.stockAdjustment > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(report.stockAdjustment)} পিস", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("ঔষধ খরচ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = if (report.medicineCost > 0) BanglaNumberFormatter.formatCurrency(report.medicineCost) else "০ ৳",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
                     }
                 }
             }

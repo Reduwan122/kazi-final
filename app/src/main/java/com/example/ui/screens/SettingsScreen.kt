@@ -92,6 +92,7 @@ fun SettingsScreen(
     onNavigateToAdmin: () -> Unit = {},
     onNavigateToRolePermissions: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
+    onNavigateToBackupRestore: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onLogout: () -> Unit
 ) {
@@ -548,6 +549,23 @@ fun SettingsScreen(
                                 SnackbarController.showError("খামার লোগো পরিবর্তন শুধুমাত্র এডমিন করতে পারেন")
                             }
                         }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                    // Google Drive Backup & Restore
+                    val googleAccountEmail by viewModel.googleAccountEmail.collectAsState()
+                    val lastBackupTimestamp by viewModel.lastBackupTimestamp.collectAsState()
+
+                    SettingsRowItem(
+                        icon = Icons.Default.CloudUpload,
+                        title = "গুগল ড্রাইভ ব্যাকআপ ও রিস্টোর",
+                        subtitle = if (googleAccountEmail != null) {
+                            "কানেক্টেড ($googleAccountEmail) • ${if (lastBackupTimestamp > 0) "সর্বশেষ: " + viewModel.driveBackupManager.formatDateFromMillis(lastBackupTimestamp) else "ব্যাকআপ নেওয়া হয়নি"}"
+                        } else {
+                            "গুগল ড্রাইভ ক্লাউড ব্যাকআপ, এনক্রিপশন ও রিস্টোর"
+                        },
+                        onClick = onNavigateToBackupRestore
                     )
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))

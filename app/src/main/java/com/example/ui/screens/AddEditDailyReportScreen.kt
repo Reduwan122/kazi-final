@@ -25,12 +25,16 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Egg
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -50,30 +55,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.DailyReportEntity
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
-import com.example.ui.viewmodel.PoultryViewModel
 import com.example.ui.components.rememberHaptics
+import com.example.ui.viewmodel.PoultryViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 @Composable
 fun AddEditDailyReportScreen(
-    reportId: Long = 0L,
     viewModel: PoultryViewModel,
+    reportId: Long = 0L,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
+    val dailyReports by viewModel.dailyReports.collectAsState()
 
     var date by remember { mutableStateOf(BanglaNumberFormatter.getCurrentDateFormatted()) }
     var currentBirdsText by remember { mutableStateOf("12500") }
@@ -82,6 +87,11 @@ fun AddEditDailyReportScreen(
     var eggSoldText by remember { mutableStateOf("") }
     var eggPriceText by remember { mutableStateOf("10.50") }
     var medicineCostText by remember { mutableStateOf("") }
+    var otherStockInText by remember { mutableStateOf("") }
+    var otherStockOutText by remember { mutableStateOf("") }
+    var stockAdjustmentText by remember { mutableStateOf("") }
+    var adjustmentReason by remember { mutableStateOf("") }
+    var showAdvancedStock by remember { mutableStateOf(false) }
     var remarks by remember { mutableStateOf("") }
 
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -90,7 +100,7 @@ fun AddEditDailyReportScreen(
     // Fetch existing data if editing
     LaunchedEffect(reportId) {
         if (isEditMode) {
-            val list = viewModel.dailyReports.value
+            val list = dailyReports
             val existing = list.find { it.id == reportId }
             if (existing != null) {
                 date = existing.date
@@ -100,6 +110,10 @@ fun AddEditDailyReportScreen(
                 eggSoldText = existing.eggSold.toString()
                 eggPriceText = existing.eggPrice.toString()
                 medicineCostText = if (existing.medicineCost > 0) existing.medicineCost.toString() else ""
+                otherStockInText = if (existing.otherStockIn > 0) existing.otherStockIn.toString() else ""
+                otherStockOutText = if (existing.otherStockOut > 0) existing.otherStockOut.toString() else ""
+                stockAdjustmentText = if (existing.stockAdjustment != 0) existing.stockAdjustment.toString() else ""
+                adjustmentReason = existing.adjustmentReason
                 remarks = existing.remarks
             }
         } else {
@@ -112,13 +126,25 @@ fun AddEditDailyReportScreen(
     // Live calculated numbers
     val parsedBirds = currentBirdsText.toIntOrNull() ?: 0
     val parsedDead = deadBirdsText.toIntOrNull() ?: 0
-    val liveBirdStock = (parsedBirds - parsedDead).coerceAtLeast(0)
+    val liveActiveBirds = (parsedBirds - parsedDead).coerceAtLeast(0)
 
     val parsedProduction = eggProductionText.toIntOrNull() ?: 0
     val parsedSold = eggSoldText.toIntOrNull() ?: 0
     val parsedPrice = eggPriceText.toDoubleOrNull() ?: 0.0
     val parsedMedicine = medicineCostText.toDoubleOrNull() ?: 0.0
+    val parsedOtherIn = otherStockInText.toIntOrNull() ?: 0
+    val parsedOtherOut = otherStockOutText.toIntOrNull() ?: 0
+    val parsedAdjustment = stockAdjustmentText.toIntOrNull() ?: 0
+
     val liveTotalSale = parsedSold * parsedPrice
+
+    // Central Opening & Closing Stock Calculation
+    val liveOpeningStock = remember(dailyReports, date, reportId) {
+        viewModel.getOpeningStockForDate(date, excludeReportId = reportId)
+    }
+    val liveEggClosingStock = liveOpeningStock + parsedProduction - parsedSold - parsedOtherOut + parsedOtherIn + parsedAdjustment
+    val isNegativeStock = liveEggClosingStock < 0
+    val shortageAmount = if (isNegativeStock) -liveEggClosingStock else 0
 
     // Calendar Picker Dialog
     val calendar = Calendar.getInstance()
@@ -248,7 +274,7 @@ fun AddEditDailyReportScreen(
                 }
             }
 
-            // Auto Calculation Card 1: Current Birds Stock
+            // Flock Count Indicator: Remaining Active Birds (ঝাঁকে অবশিষ্ট মুরগি)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -264,13 +290,13 @@ fun AddEditDailyReportScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Pets,
-                            contentDescription = "Flock",
+                            contentDescription = "Active Flock",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "বর্তমান স্টক (মুরগি)",
+                            text = "অবশিষ্ট সক্রিয় মুরগি",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -279,7 +305,7 @@ fun AddEditDailyReportScreen(
                     }
 
                     Text(
-                        text = BanglaNumberFormatter.formatNumber(liveBirdStock),
+                        text = "${BanglaNumberFormatter.formatNumber(liveActiveBirds)} টি",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -341,6 +367,206 @@ fun AddEditDailyReportScreen(
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth().testTag("field_egg_sold")
                     )
+                }
+            }
+
+            // Central Live Egg Stock Calculation Card (ডিম স্টক হিসাব)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isNegativeStock) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = if (isNegativeStock) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Inventory2,
+                                contentDescription = "Egg Stock",
+                                tint = if (isNegativeStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ডিম স্টক হিসাব (কেন্দ্রীয় ইঞ্জিন)",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        Text(
+                            text = if (isNegativeStock) "${BanglaNumberFormatter.formatNumber(liveEggClosingStock)} টি" else "${BanglaNumberFormatter.formatNumber(liveEggClosingStock)} টি",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isNegativeStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("প্রারম্ভিক স্টক:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${BanglaNumberFormatter.formatNumber(liveOpeningStock)} টি", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("আজকের উৎপাদন (+):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("+ ${BanglaNumberFormatter.formatNumber(parsedProduction)} টি", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("আজকের বিক্রি (-):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("- ${BanglaNumberFormatter.formatNumber(parsedSold)} টি", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error))
+                    }
+
+                    if (parsedOtherIn > 0 || parsedOtherOut > 0 || parsedAdjustment != 0) {
+                        if (parsedOtherIn > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("অন্যান্য বৃদ্ধি (+):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("+ ${BanglaNumberFormatter.formatNumber(parsedOtherIn)} টি", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
+                            }
+                        }
+                        if (parsedOtherOut > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("অন্যান্য হ্রাস / নষ্ট (-):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("- ${BanglaNumberFormatter.formatNumber(parsedOtherOut)} টি", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
+                            }
+                        }
+                        if (parsedAdjustment != 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("সমন্বয় (Adjustment):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${if (parsedAdjustment > 0) "+" else ""}${BanglaNumberFormatter.formatNumber(parsedAdjustment)} টি", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
+                            }
+                        }
+                    }
+
+                    if (isNegativeStock) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Warning",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "সতর্কতা: উপলব্ধ স্টকের চেয়ে ${BanglaNumberFormatter.formatNumber(shortageAmount)} টি বেশি বিক্রয় হিসেবে উল্লেখ করা হয়েছে।",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Advanced Stock Movements Toggle (অন্যান্য স্টক মুভমেন্ট)
+            OutlinedButton(
+                onClick = { showAdvancedStock = !showAdvancedStock },
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().height(36.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+            ) {
+                Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (showAdvancedStock) "অন্যান্য স্টক সমন্বয় লুকান" else "অন্যান্য স্টক মুভমেন্ট ও সমন্বয় (ঐচ্ছিক)",
+                    fontSize = 12.sp
+                )
+            }
+
+            if (showAdvancedStock) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("অন্যান্য স্টক বৃদ্ধি (পিস)", style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = otherStockInText,
+                                onValueChange = { otherStockInText = BanglaNumberFormatter.toEnglishDigits(it) },
+                                placeholder = { Text("০") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("অন্যান্য স্টক হ্রাস/নষ্ট (পিস)", style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = otherStockOutText,
+                                onValueChange = { otherStockOutText = BanglaNumberFormatter.toEnglishDigits(it) },
+                                placeholder = { Text("০") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("স্টক সমন্বয় (Adjustment)", style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = stockAdjustmentText,
+                                onValueChange = { stockAdjustmentText = BanglaNumberFormatter.toEnglishDigits(it) },
+                                placeholder = { Text("+/- ০") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("সমন্বয়ের কারণ", style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = adjustmentReason,
+                                onValueChange = { adjustmentReason = it },
+                                placeholder = { Text("যেমন: ফিজিক্যাল গণনা") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
                 }
             }
 
@@ -516,6 +742,10 @@ fun AddEditDailyReportScreen(
                             eggSold = parsedSold,
                             eggPrice = parsedPrice,
                             medicineCost = parsedMedicine,
+                            otherStockIn = parsedOtherIn,
+                            otherStockOut = parsedOtherOut,
+                            stockAdjustment = parsedAdjustment,
+                            adjustmentReason = adjustmentReason,
                             remarks = remarks,
                             onSuccess = onBack
                         )

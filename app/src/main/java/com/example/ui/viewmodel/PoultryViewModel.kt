@@ -10,11 +10,19 @@ import android.util.Base64
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.backup.AutoBackupWorker
+import com.example.data.backup.BackupDataContent
+import com.example.data.backup.BackupProgressState
+import com.example.data.backup.DriveBackupManager
+import com.example.data.backup.DriveFileInfo
 import com.example.data.local.DailyReportEntity
 import com.example.data.local.FarmProfileEntity
 import com.example.data.local.MonthlyExpenseEntity
 import com.example.data.local.UserEntity
 import com.example.data.repository.PoultryRepository
+import com.example.domain.DailyStockRecord
+import com.example.domain.StockCalculationService
+import com.example.domain.StockSummary
 import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.SnackbarController
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +43,8 @@ import java.util.Locale
 class PoultryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: PoultryRepository = PoultryRepository(application)
+    val driveBackupManager: DriveBackupManager = DriveBackupManager(application)
+
     val dailyReports: StateFlow<List<DailyReportEntity>>
     val expenses: StateFlow<List<MonthlyExpenseEntity>>
     val farmProfile: StateFlow<FarmProfileEntity>
@@ -42,6 +52,26 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     val allUsers: StateFlow<List<UserEntity>>
     val rolePermissions: StateFlow<Map<String, com.example.data.local.RolePermissionConfig>>
     val dashboardStats: StateFlow<DashboardStats>
+    val stockLedger: StateFlow<Map<String, DailyStockRecord>>
+
+    // Google Drive Backup StateFlows
+    private val _googleAccountEmail = MutableStateFlow<String?>(driveBackupManager.getConnectedAccount()?.email)
+    val googleAccountEmail: StateFlow<String?> = _googleAccountEmail.asStateFlow()
+
+    private val _backupProgressState = MutableStateFlow<BackupProgressState>(BackupProgressState.Idle)
+    val backupProgressState: StateFlow<BackupProgressState> = _backupProgressState.asStateFlow()
+
+    private val _driveBackupsList = MutableStateFlow<List<DriveFileInfo>>(emptyList())
+    val driveBackupsList: StateFlow<List<DriveFileInfo>> = _driveBackupsList.asStateFlow()
+
+    private val _lastBackupTimestamp = MutableStateFlow(driveBackupManager.getLastBackupTimestamp())
+    val lastBackupTimestamp: StateFlow<Long> = _lastBackupTimestamp.asStateFlow()
+
+    private val _isAutoBackupEnabled = MutableStateFlow(driveBackupManager.isAutoBackupEnabled())
+    val isAutoBackupEnabled: StateFlow<Boolean> = _isAutoBackupEnabled.asStateFlow()
+
+    private val _autoBackupFrequency = MutableStateFlow(driveBackupManager.getAutoBackupFrequency())
+    val autoBackupFrequency: StateFlow<String> = _autoBackupFrequency.asStateFlow()
 
     // Daily Report Filters
     val dailySearchQuery = MutableStateFlow("")
@@ -51,15 +81,20 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     val expenseSearchQuery = MutableStateFlow("")
     val expenseSelectedMonth = MutableStateFlow("সকল রেকর্ড")
 
-    // Sync / Backup status message
-    val syncStatus = MutableStateFlow("ফায়ারবেস ক্লাউড কানেক্টেড")
+    // User Management Filters
+    val userSearchQuery = MutableStateFlow("")
+    val userSelectedRole = MutableStateFlow("সকল")
+
+    // App Preferences
+    val isDarkMode = MutableStateFlow(false)
+    val isRememberMe = MutableStateFlow(false)
 
     // Notification read/unread state — stores the date when notifications were last dismissed
-    private val _notificationDismissedDate = MutableStateFlow("")
-    val notificationDismissedDate: StateFlow<String> = _notificationDismissedDate
+    private val _notificationDismissedDate = MutableStateFlow<String?>(null)
+    val notificationDismissedDate: StateFlow<String?> = _notificationDismissedDate.asStateFlow()
 
     fun markNotificationsRead() {
-        _notificationDismissedDate.value = com.example.ui.components.BanglaNumberFormatter.getCurrentDateFormatted()
+        _notificationDismissedDate.value = BanglaNumberFormatter.getCurrentDateFormatted()
     }
 
     init {
@@ -104,6 +139,14 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
             )
         )
 
+        stockLedger = combine(dailyReports) { reportsList ->
+            StockCalculationService.calculateSequentialStockLedger(reportsList[0])
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            emptyMap()
+        )
+
         dashboardStats = combine(
             dailyReports,
             expenses
@@ -141,7 +184,9 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         val todayProduction = todayReport?.eggProduction ?: 0
         val todaySale = todayReport?.totalSale ?: 0.0
         val todayExp = todayExpense?.totalExpense ?: 0.0
-        val eggStock = todayReport?.currentStock ?: latestReport?.currentStock ?: 0
+        
+        // Use central stock engine for 100% accurate, derived closing stock
+        val eggStock = StockCalculationService.calculateCurrentStock(reportsList)
 
         // Current Month total calculations
         val currentMonthPrefix = todayStr.take(7) // "YYYY-MM"
@@ -176,6 +221,10 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         eggSold: Int,
         eggPrice: Double,
         medicineCost: Double,
+        otherStockIn: Int = 0,
+        otherStockOut: Int = 0,
+        stockAdjustment: Int = 0,
+        adjustmentReason: String = "",
         remarks: String,
         onSuccess: () -> Unit
     ) {
@@ -183,8 +232,9 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
             val isUpdate = id > 0L
             try {
                 val totalSale = eggSold * eggPrice
-                val previousStock = repository.getPreviousStock(date)
-                val currentStock = previousStock + eggProduction - eggSold
+                val priorReports = dailyReports.value.filter { it.id != id }
+                val openingStock = StockCalculationService.calculateOpeningStockForDate(priorReports, date)
+                val closingStock = openingStock + eggProduction - eggSold - otherStockOut + otherStockIn + stockAdjustment
 
                 val entity = DailyReportEntity(
                     id = id,
@@ -196,7 +246,11 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
                     eggPrice = eggPrice,
                     totalSale = totalSale,
                     medicineCost = medicineCost,
-                    currentStock = currentStock.coerceAtLeast(0),
+                    currentStock = closingStock,
+                    otherStockIn = otherStockIn,
+                    otherStockOut = otherStockOut,
+                    stockAdjustment = stockAdjustment,
+                    adjustmentReason = adjustmentReason,
                     remarks = remarks,
                     updatedAt = System.currentTimeMillis()
                 )
@@ -213,6 +267,21 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
                 )
             }
         }
+    }
+
+    /**
+     * Retrieves the opening stock for a target date from the central stock engine.
+     */
+    fun getOpeningStockForDate(targetDate: String, excludeReportId: Long = 0L): Int {
+        val list = if (excludeReportId > 0L) dailyReports.value.filter { it.id != excludeReportId } else dailyReports.value
+        return StockCalculationService.calculateOpeningStockForDate(list, targetDate)
+    }
+
+    /**
+     * Retrieves the stock summary for a specific period (e.g. month or date range).
+     */
+    fun getStockSummaryForPeriod(startDate: String?, endDate: String?): StockSummary {
+        return StockCalculationService.calculateStockForPeriod(dailyReports.value, startDate, endDate)
     }
 
     fun deleteDailyReport(id: Long) {
@@ -652,10 +721,251 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         context.startActivity(Intent.createChooser(intent, "$subject এক্সপোর্ট করুন"))
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // Google Drive Backup & Restore Operations
+    // ══════════════════════════════════════════════════════════════════════
+
+    fun refreshGoogleAccountStatus() {
+        _googleAccountEmail.value = driveBackupManager.getConnectedAccount()?.email
+        _lastBackupTimestamp.value = driveBackupManager.getLastBackupTimestamp()
+        _isAutoBackupEnabled.value = driveBackupManager.isAutoBackupEnabled()
+        _autoBackupFrequency.value = driveBackupManager.getAutoBackupFrequency()
+        if (driveBackupManager.isConnected()) {
+            fetchDriveBackupsList()
+        }
+    }
+
+    fun disconnectGoogleAccount(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            driveBackupManager.disconnect()
+            _googleAccountEmail.value = null
+            _driveBackupsList.value = emptyList()
+            AutoBackupWorker.cancel(getApplication())
+            driveBackupManager.setAutoBackupEnabled(false)
+            _isAutoBackupEnabled.value = false
+            SnackbarController.showMessage("গুগল ড্রাইভ অ্যাকাউন্ট সংযোগ বিচ্ছিন্ন করা হয়েছে")
+            onDone()
+        }
+    }
+
+    fun fetchDriveBackupsList() {
+        viewModelScope.launch {
+            val token = driveBackupManager.getAccessToken() ?: return@launch
+            val res = driveBackupManager.listBackupsFromDrive(token)
+            if (res.isSuccess) {
+                _driveBackupsList.value = res.getOrDefault(emptyList())
+            }
+        }
+    }
+
+    fun performManualBackup(
+        password: String? = null,
+        onSuccess: (DriveFileInfo) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            if (!driveBackupManager.isNetworkAvailable()) {
+                val err = "ইন্টারনেট সংযোগ নেই। ইন্টারনেট চালু করে আবার চেষ্টা করুন।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+                return@launch
+            }
+
+            if (!driveBackupManager.isConnected()) {
+                val err = "প্রথমে গুগল ড্রাইভ অ্যাকাউন্ট সংযোগ করুন।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+                return@launch
+            }
+
+            _backupProgressState.value = BackupProgressState.Connecting()
+
+            val token = driveBackupManager.getAccessToken()
+            if (token == null) {
+                val err = "গুগল ড্রাইভ অনুমোদন টোকেন প্রাপ্তি ব্যর্থ হয়েছে।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+                return@launch
+            }
+
+            _backupProgressState.value = BackupProgressState.Preparing()
+
+            val user = currentUser.value
+            val userId = user?.id ?: ""
+            val userEmail = user?.email ?: ""
+
+            val backupJson = driveBackupManager.createBackupJson(
+                farmProfile = farmProfile.value,
+                dailyReports = dailyReports.value,
+                monthlyExpenses = expenses.value,
+                rolePermissions = rolePermissions.value,
+                userId = userId,
+                userEmail = userEmail,
+                password = password,
+                isPreRestore = false
+            )
+
+            _backupProgressState.value = BackupProgressState.Uploading()
+
+            val result = driveBackupManager.uploadBackupToDrive(
+                backupJsonString = backupJson,
+                isPreRestore = false,
+                accessToken = token
+            )
+
+            if (result.isSuccess) {
+                val fileInfo = result.getOrThrow()
+                _lastBackupTimestamp.value = fileInfo.createdTime
+                _backupProgressState.value = BackupProgressState.Success("আপনার খামার ডেটা সফলভাবে গুগল ড্রাইভে ব্যাকআপ করা হয়েছে।")
+                SnackbarController.showMessage("গুগল ড্রাইভে ব্যাকআপ সফল হয়েছে!")
+                fetchDriveBackupsList()
+                onSuccess(fileInfo)
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "ব্যাকআপ আপলোড ব্যর্থ হয়েছে।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+            }
+        }
+    }
+
+    fun performRestore(
+        driveFile: DriveFileInfo,
+        password: String? = null,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            if (!driveBackupManager.isNetworkAvailable()) {
+                val err = "ইন্টারনেট সংযোগ নেই। ইন্টারনেট চালু করে আবার চেষ্টা করুন।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+                return@launch
+            }
+
+            val token = driveBackupManager.getAccessToken()
+            if (token == null) {
+                val err = "গুগল ড্রাইভ অনুমোদন টোকেন প্রাপ্তি ব্যর্থ হয়েছে।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+                return@launch
+            }
+
+            _backupProgressState.value = BackupProgressState.Downloading()
+
+            val downloadResult = driveBackupManager.downloadBackupFromDrive(driveFile.id, token)
+            if (downloadResult.isFailure) {
+                val err = downloadResult.exceptionOrNull()?.message ?: "ব্যাকআপ ফাইল ডাউনলোড ব্যর্থ।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+                return@launch
+            }
+
+            val jsonContent = downloadResult.getOrThrow()
+            val currentUid = currentUser.value?.id ?: ""
+
+            val parseResult = driveBackupManager.validateAndParseBackup(
+                jsonString = jsonContent,
+                currentUserId = currentUid,
+                password = password
+            )
+
+            if (parseResult.isFailure) {
+                val err = parseResult.exceptionOrNull()?.message ?: "অবৈধ ব্যাকআপ ফাইল।"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+                return@launch
+            }
+
+            val restoredData = parseResult.getOrThrow()
+
+            _backupProgressState.value = BackupProgressState.Restoring("পূর্ববর্তী ডেটার সুরক্ষা ব্যাকআপ তৈরি হচ্ছে...")
+
+            // Safety pre-restore backup
+            try {
+                val safetyBackupJson = driveBackupManager.createBackupJson(
+                    farmProfile = farmProfile.value,
+                    dailyReports = dailyReports.value,
+                    monthlyExpenses = expenses.value,
+                    rolePermissions = rolePermissions.value,
+                    userId = currentUid,
+                    userEmail = currentUser.value?.email ?: "",
+                    password = null,
+                    isPreRestore = true
+                )
+                driveBackupManager.uploadBackupToDrive(
+                    backupJsonString = safetyBackupJson,
+                    isPreRestore = true,
+                    accessToken = token
+                )
+            } catch (e: Exception) {
+                Log.w("PoultryViewModel", "Safety pre-restore backup skipped or failed: ${e.message}")
+            }
+
+            _backupProgressState.value = BackupProgressState.Restoring("ডেটাবেজ ও স্টক হিসাব রিস্টোর হচ্ছে...")
+
+            try {
+                repository.restoreCompleteBackup(restoredData)
+                _backupProgressState.value = BackupProgressState.Success("ব্যাকআপ সফলভাবে রিস্টোর করা হয়েছে!")
+                SnackbarController.showMessage("ব্যাকআপ সফলভাবে রিস্টোর ও স্টক হিসাব সম্পন্ন হয়েছে!")
+                fetchDriveBackupsList()
+                onSuccess()
+            } catch (e: Exception) {
+                val err = "রিস্টোর ব্যর্থ হয়েছে: ${e.message}"
+                _backupProgressState.value = BackupProgressState.Error(err)
+                SnackbarController.showError(err)
+                onError(err)
+            }
+        }
+    }
+
+    fun deleteDriveBackup(
+        driveFile: DriveFileInfo,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val token = driveBackupManager.getAccessToken() ?: return@launch
+            val res = driveBackupManager.deleteBackupFromDrive(driveFile.id, token)
+            if (res.isSuccess) {
+                SnackbarController.showMessage("ব্যাকআপ ফাইল ডিলিট করা হয়েছে")
+                fetchDriveBackupsList()
+                onSuccess()
+            } else {
+                val err = res.exceptionOrNull()?.message ?: "ফাইল ডিলিট ব্যর্থ হয়েছে"
+                SnackbarController.showError(err)
+                onError(err)
+            }
+        }
+    }
+
+    fun updateAutoBackupSettings(enabled: Boolean, frequency: String) {
+        driveBackupManager.setAutoBackupEnabled(enabled)
+        driveBackupManager.setAutoBackupFrequency(frequency)
+        _isAutoBackupEnabled.value = enabled
+        _autoBackupFrequency.value = frequency
+
+        if (enabled && driveBackupManager.isConnected()) {
+            AutoBackupWorker.schedule(getApplication(), frequency)
+            SnackbarController.showMessage("স্বয়ংক্রিয় ব্যাকআপ সক্রিয় করা হয়েছে ($frequency)")
+        } else {
+            AutoBackupWorker.cancel(getApplication())
+            if (!enabled) {
+                SnackbarController.showMessage("স্বয়ংক্রিয় ব্যাকআপ নিষ্ক্রিয় করা হয়েছে")
+            }
+        }
+    }
+
     fun manualBackup(context: Context) {
         viewModelScope.launch {
-            syncStatus.value = "ফায়ারবেস ক্লাউড সিঙ্ক সফল (${BanglaNumberFormatter.toBanglaDigits(SimpleDateFormat("hh:mm a", Locale.US).format(Date()))})"
-            SnackbarController.showMessage("ক্লাউড সিঙ্ক সফল হয়েছে!")
+            performManualBackup()
         }
     }
 

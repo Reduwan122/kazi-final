@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Egg
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Pets
@@ -170,6 +172,69 @@ fun DashboardScreen(
                         onClick = onNavigateToExpense,
                         modifier = Modifier.weight(1f)
                     )
+                }
+            }
+
+            // Total Stock Card (মোট স্টক)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .scaleClickable { onNavigateToDailyReport() }
+                    .testTag("stat_card_total_stock"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Inventory2,
+                                contentDescription = "মোট স্টক",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "মোট স্টক",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Text(
+                                text = BanglaNumberFormatter.formatNumber(stats.currentEggStock) + " টি",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 22.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+                    }
                 }
             }
 

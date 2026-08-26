@@ -138,6 +138,17 @@ fun DailyReportScreen(
     val totalSaleAmount = filteredReports.sumOf { it.totalSale }
     val totalMedicine = filteredReports.sumOf { it.medicineCost }
 
+    val stockLedger by viewModel.stockLedger.collectAsState()
+    val periodStockSummary = remember(filteredReports, dailyReports) {
+        if (filteredReports.isEmpty()) null
+        else {
+            val minDate = filteredReports.minOfOrNull { it.date }
+            val maxDate = filteredReports.maxOfOrNull { it.date }
+            viewModel.getStockSummaryForPeriod(minDate, maxDate)
+        }
+    }
+    val periodClosingStock = periodStockSummary?.closingStock
+
     val horizontalScrollState = rememberScrollState()
 
     Scaffold(
@@ -511,9 +522,16 @@ fun DailyReportScreen(
                                         modifier = Modifier.width(80.dp),
                                         textAlign = TextAlign.End
                                     )
+                                    val stockRecord = stockLedger[report.date]
+                                    val rowStock = stockRecord?.closingStock ?: report.currentStock
+                                    val isNegativeRowStock = rowStock < 0
+
                                     Text(
-                                        text = BanglaNumberFormatter.formatNumber(report.currentStock),
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        text = BanglaNumberFormatter.formatNumber(rowStock),
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isNegativeRowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                        ),
                                         modifier = Modifier.width(85.dp).padding(end = 14.dp),
                                         textAlign = TextAlign.End
                                     )
@@ -588,8 +606,11 @@ fun DailyReportScreen(
                                         textAlign = TextAlign.End
                                     )
                                     Text(
-                                        text = "-",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        text = if (periodClosingStock != null) BanglaNumberFormatter.formatNumber(periodClosingStock) else "-",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if ((periodClosingStock ?: 0) < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                        ),
                                         modifier = Modifier.width(85.dp).padding(end = 14.dp),
                                         textAlign = TextAlign.End
                                     )

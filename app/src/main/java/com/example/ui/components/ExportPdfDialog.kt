@@ -61,6 +61,7 @@ import com.example.R
 import com.example.data.local.DailyReportEntity
 import com.example.data.local.FarmProfileEntity
 import com.example.data.local.MonthlyExpenseEntity
+import com.example.domain.StockCalculationService
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -377,6 +378,12 @@ fun PdfPreviewModalDialog(
 fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
     val scrollState = rememberScrollState()
 
+    val stockLedger = remember(reports) { StockCalculationService.calculateSequentialStockLedger(reports) }
+    val periodStockSummary = remember(reports) {
+        if (reports.isEmpty()) null
+        else StockCalculationService.calculateStockForPeriod(reports, reports.minOfOrNull { it.date }, reports.maxOfOrNull { it.date })
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -403,6 +410,7 @@ fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
         // Table Rows
         reports.forEachIndexed { index, r ->
             val bg = if (index % 2 == 0) Color.White else Color(0xFFF9F9F9)
+            val rowStock = stockLedger[r.date]?.closingStock ?: r.currentStock
             Row(
                 modifier = Modifier
                     .background(bg)
@@ -416,7 +424,7 @@ fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
                 TableCell(BanglaNumberFormatter.formatDecimal(r.eggPrice), width = 50.dp)
                 TableCell(BanglaNumberFormatter.formatCurrency(r.totalSale), width = 90.dp, isBold = true)
                 TableCell(if (r.medicineCost > 0) BanglaNumberFormatter.formatCurrency(r.medicineCost) else "০", width = 65.dp)
-                TableCell(BanglaNumberFormatter.formatNumber(r.currentStock), width = 60.dp)
+                TableCell(BanglaNumberFormatter.formatNumber(rowStock), width = 60.dp)
             }
         }
 
@@ -425,6 +433,7 @@ fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
         val totalSold = reports.sumOf { it.eggSold }
         val totalSale = reports.sumOf { it.totalSale }
         val totalMed = reports.sumOf { it.medicineCost }
+        val grandClosingStock = periodStockSummary?.closingStock
 
         Row(
             modifier = Modifier
@@ -439,7 +448,7 @@ fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
             TableCell("-", width = 50.dp, isHeader = true)
             TableCell(BanglaNumberFormatter.formatCurrency(totalSale), width = 90.dp, isHeader = true)
             TableCell(BanglaNumberFormatter.formatCurrency(totalMed), width = 65.dp, isHeader = true)
-            TableCell("-", width = 60.dp, isHeader = true)
+            TableCell(if (grandClosingStock != null) BanglaNumberFormatter.formatNumber(grandClosingStock) else "-", width = 60.dp, isHeader = true)
         }
     }
 }
@@ -590,7 +599,13 @@ fun generateHtmlContent(
 
     val tableRows = StringBuilder()
     if (isDaily) {
+        val stockLedger = StockCalculationService.calculateSequentialStockLedger(dailyReports)
+        val periodStockSummary = if (dailyReports.isNotEmpty()) {
+            StockCalculationService.calculateStockForPeriod(dailyReports, dailyReports.minOfOrNull { it.date }, dailyReports.maxOfOrNull { it.date })
+        } else null
+
         for (r in dailyReports) {
+            val rowStock = stockLedger[r.date]?.closingStock ?: r.currentStock
             tableRows.append("<tr>")
             tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
@@ -600,7 +615,7 @@ fun generateHtmlContent(
             tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(r.eggPrice)}</td>")
             tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(r.totalSale)}</td>")
             tableRows.append("<td>${if (r.medicineCost > 0) BanglaNumberFormatter.formatCurrency(r.medicineCost) else "০"}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentStock)}</td>")
+            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(rowStock)}</td>")
             tableRows.append("</tr>")
         }
 
@@ -609,6 +624,8 @@ fun generateHtmlContent(
         val totalSold = dailyReports.sumOf { it.eggSold }
         val totalSale = dailyReports.sumOf { it.totalSale }
         val totalMed = dailyReports.sumOf { it.medicineCost }
+        val grandClosingStock = periodStockSummary?.closingStock
+
         tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
         tableRows.append("<td style='text-align:center;'>সর্বমোট</td><td>-</td><td>-</td>")
         tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalProd)}</td>")
@@ -616,7 +633,7 @@ fun generateHtmlContent(
         tableRows.append("<td>-</td>")
         tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalSale)}</td>")
         tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMed)}</td>")
-        tableRows.append("<td>-</td></tr>")
+        tableRows.append("<td>${if (grandClosingStock != null) BanglaNumberFormatter.formatNumber(grandClosingStock) else "-"}</td></tr>")
     } else {
         for (e in expenses) {
             tableRows.append("<tr>")
