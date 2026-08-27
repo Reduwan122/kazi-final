@@ -60,8 +60,10 @@ class DriveBackupManager(private val context: Context) {
      * Obtains official GoogleSignInClient
      */
     fun getGoogleSignInClient(): GoogleSignInClient {
+        val webClientId = "943658387428-85besnmkdehm108jis001h7v9c5drhtk.apps.googleusercontent.com"
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
+            .requestIdToken(webClientId)
             .requestScopes(Scope(DRIVE_SCOPE))
             .build()
         return GoogleSignIn.getClient(context, gso)
