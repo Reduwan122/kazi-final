@@ -998,6 +998,140 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun exportBackupToUri(
+        context: Context,
+        uri: Uri,
+        password: String? = null,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val user = currentUser.value
+                val backupJson = driveBackupManager.createBackupJson(
+                    farmProfile = farmProfile.value,
+                    dailyReports = dailyReports.value,
+                    monthlyExpenses = expenses.value,
+                    rolePermissions = rolePermissions.value,
+                    userId = user?.id ?: "",
+                    userEmail = user?.email ?: "",
+                    password = password,
+                    isPreRestore = false
+                )
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(backupJson.toByteArray(Charsets.UTF_8))
+                    outputStream.flush()
+                } ?: throw Exception("ফাইল আউটপুট খুলতে ব্যর্থ হয়েছে")
+
+                withContext(Dispatchers.Main) {
+                    SnackbarController.showMessage("ব্যাকআপ ফাইলটি সফলভাবে সংরক্ষিত হয়েছে!")
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    val err = "ফাইল সংরক্ষণ ব্যর্থ: ${e.message}"
+                    SnackbarController.showError(err)
+                    onError(err)
+                }
+            }
+        }
+    }
+
+    fun restoreBackupFromUri(
+        context: Context,
+        uri: Uri,
+        password: String? = null,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val jsonString = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    inputStream.bufferedReader(Charsets.UTF_8).readText()
+                } ?: throw Exception("ফাইল পড়তে ব্যর্থ হয়েছে")
+
+                val currentUid = currentUser.value?.id ?: ""
+                val parseResult = driveBackupManager.validateAndParseBackup(
+                    jsonString = jsonString,
+                    currentUserId = currentUid,
+                    password = password
+                )
+
+                if (parseResult.isFailure) {
+                    val err = parseResult.exceptionOrNull()?.message ?: "অবৈধ ব্যাকআপ ফাইল।"
+                    withContext(Dispatchers.Main) {
+                        SnackbarController.showError(err)
+                        onError(err)
+                    }
+                    return@launch
+                }
+
+                val restoredData = parseResult.getOrThrow()
+                repository.restoreCompleteBackup(restoredData)
+
+                withContext(Dispatchers.Main) {
+                    SnackbarController.showMessage("ফাইল থেকে সম্পূর্ণ ডেটা ও স্টক হিসাব সফলভাবে রিস্টোর হয়েছে!")
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    val err = "রিস্টোর ব্যর্থ: ${e.message}"
+                    SnackbarController.showError(err)
+                    onError(err)
+                }
+            }
+        }
+    }
+
+    fun shareBackupFile(
+        context: Context,
+        password: String? = null,
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val user = currentUser.value
+                val backupJson = driveBackupManager.createBackupJson(
+                    farmProfile = farmProfile.value,
+                    dailyReports = dailyReports.value,
+                    monthlyExpenses = expenses.value,
+                    rolePermissions = rolePermissions.value,
+                    userId = user?.id ?: "",
+                    userEmail = user?.email ?: "",
+                    password = password,
+                    isPreRestore = false
+                )
+                val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+                val fileName = "Kazi_Agrotech_Backup_${sdf.format(Date())}.kazi"
+                val file = File(context.cacheDir, fileName)
+                file.writeText(backupJson, Charsets.UTF_8)
+
+                val fileUri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/octet-stream"
+                    putExtra(Intent.EXTRA_STREAM, fileUri)
+                    putExtra(Intent.EXTRA_SUBJECT, "কাজী এগ্রোটেক খামার ডেটা ব্যাকআপ")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                withContext(Dispatchers.Main) {
+                    context.startActivity(Intent.createChooser(shareIntent, "গুগল ড্রাইভ বা অন্য অ্যাপে ব্যাকআপ শেয়ার করুন"))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    val err = "শেয়ার প্রস্তুত ব্যর্থ: ${e.message}"
+                    SnackbarController.showError(err)
+                    onError(err)
+                }
+            }
+        }
+    }
+
     fun manualBackup(context: Context) {
         viewModelScope.launch {
             performManualBackup()
