@@ -57,14 +57,13 @@ class DriveBackupManager(private val context: Context) {
         .build()
 
     /**
-     * Obtains official GoogleSignInClient
+     * Obtains official GoogleSignInClient.
+     * We request only email here — Drive permission is acquired separately
+     * via GoogleAuthUtil.getToken() to avoid OAuth consent screen blocking the sign-in.
      */
     fun getGoogleSignInClient(): GoogleSignInClient {
-        val webClientId = "943658387428-85besnmkdehm108jis001h7v9c5drhtk.apps.googleusercontent.com"
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-            .requestIdToken(webClientId)
-            .requestScopes(Scope(DRIVE_SCOPE))
             .build()
         return GoogleSignIn.getClient(context, gso)
     }
