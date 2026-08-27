@@ -1001,6 +1001,40 @@ fun BackupRestoreScreen(
             }
         )
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // Dialog 7: Google Cloud SHA-1 Info Dialog
+    // ══════════════════════════════════════════════════════════════
+    if (showSetupHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showSetupHelpDialog = false },
+            icon = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("গুগল ক্লাউড সিঙ্ক নির্দেশিকা", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "১. তাত্ক্ষণিক ব্যাকআপ:\n'গুগল ড্রাইভ ও মেমোরিতে ফাইল সেভ করুন' বাটন চাপলে কোনো কনফিগারেশন ছাড়াই সরাসরি যেকোনো ড্রাইভ ফোল্ডারে ব্যাকআপ নেওয়া যায়।",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    HorizontalDivider()
+                    Text(
+                        text = "২. অটো ক্লাউড সিঙ্ক:\nসরাসরি গুগল ড্রাইভ ক্লাউড কানেক্টের জন্য ফায়ারবেস কনসোলে এই নতুন ইউনিক SHA-1 যোগ করুন:",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Package: com.aistudio.kaziagro.poultr\nSHA-1: F5:89:72:08:FA:8F:4A:7E:2F:9D:C4:7F:46:12:34:30:00:BA:AA:0F\nSHA-256: AF:9D:45:D1:06:BB:93:C2:7C:96:97:7E:65:1F:C6:2A:99:9C:2B:1C:CF:B9:59:EF:0D:40:17:6E:9D:65:D8:93",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showSetupHelpDialog = false }) {
+                    Text("বুঝেছি")
+                }
+            }
+        )
+    }
 }
 
 @Composable

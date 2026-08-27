@@ -31,22 +31,30 @@ android {
 
   signingConfigs {
     create("release") {
+      val kaziKeystore = file("${rootDir}/kazi_keystore.jks")
+      val myUploadKey = file("${rootDir}/my-upload-key.jks")
       val keystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
           ?: System.getenv("KEYSTORE_PATH")
-          ?: "${rootDir}/my-upload-key.jks"
-      val keyFile = file(keystorePath)
+      val keyFile = if (keystorePath != null) file(keystorePath) else if (kaziKeystore.exists()) kaziKeystore else myUploadKey
+
       if (keyFile.exists()) {
         storeFile = keyFile
-        storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
-            ?: System.getenv("KEYSTORE_PASSWORD")
-            ?: System.getenv("STORE_PASSWORD")
-            ?: "android"
-        keyAlias = System.getenv("RELEASE_KEY_ALIAS")
-            ?: System.getenv("KEY_ALIAS")
-            ?: "upload"
-        keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
-            ?: System.getenv("KEY_PASSWORD")
-            ?: "android"
+        if (keyFile.name == "kazi_keystore.jks") {
+          storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: "kaziagro123"
+          keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "kaziagro"
+          keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "kaziagro123"
+        } else {
+          storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+              ?: System.getenv("KEYSTORE_PASSWORD")
+              ?: System.getenv("STORE_PASSWORD")
+              ?: "android"
+          keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+              ?: System.getenv("KEY_ALIAS")
+              ?: "upload"
+          keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+              ?: System.getenv("KEY_PASSWORD")
+              ?: "android"
+        }
       } else {
         val rootDebugKeystore = file("${rootDir}/debug.keystore")
         if (rootDebugKeystore.exists()) {
@@ -58,12 +66,20 @@ android {
       }
     }
     create("debugConfig") {
-      val rootDebugKeystore = file("${rootDir}/debug.keystore")
-      if (rootDebugKeystore.exists()) {
-        storeFile = rootDebugKeystore
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
+      val kaziKeystore = file("${rootDir}/kazi_keystore.jks")
+      if (kaziKeystore.exists()) {
+        storeFile = kaziKeystore
+        storePassword = "kaziagro123"
+        keyAlias = "kaziagro"
+        keyPassword = "kaziagro123"
+      } else {
+        val rootDebugKeystore = file("${rootDir}/debug.keystore")
+        if (rootDebugKeystore.exists()) {
+          storeFile = rootDebugKeystore
+          storePassword = "android"
+          keyAlias = "androiddebugkey"
+          keyPassword = "android"
+        }
       }
     }
   }
