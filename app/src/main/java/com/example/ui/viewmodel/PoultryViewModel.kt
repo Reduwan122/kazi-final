@@ -21,6 +21,9 @@ import com.example.data.local.FarmProfileEntity
 import com.example.data.local.MonthlyExpenseEntity
 import com.example.data.local.UserEntity
 import com.example.data.repository.PoultryRepository
+import com.example.data.update.AppUpdateInfo
+import com.example.data.update.AppUpdateManager
+import com.example.data.update.UpdateState
 import com.example.domain.DailyStockRecord
 import com.example.domain.StockCalculationService
 import com.example.domain.StockSummary
@@ -45,6 +48,10 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
 
     private val repository: PoultryRepository = PoultryRepository(application)
     val driveBackupManager: DriveBackupManager = DriveBackupManager(application)
+    val appUpdateManager: AppUpdateManager = AppUpdateManager(application)
+
+    val updateState: StateFlow<UpdateState> = appUpdateManager.updateState
+    val availableUpdate: StateFlow<AppUpdateInfo?> = appUpdateManager.availableUpdate
 
     val dailyReports: StateFlow<List<DailyReportEntity>>
     val expenses: StateFlow<List<MonthlyExpenseEntity>>
@@ -1003,6 +1010,49 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
 
     suspend fun getLatestFlockCount(): Int {
         return repository.getLatestFlockCount()
+    }
+
+    // ── In-App Auto Update Methods ──
+
+    fun checkForUpdates(isManual: Boolean = false, onResult: ((Boolean, String?) -> Unit)? = null) {
+        viewModelScope.launch {
+            appUpdateManager.checkForUpdates(isManual = isManual, onResult = onResult)
+        }
+    }
+
+    fun downloadAndInstallUpdate(context: Context, info: AppUpdateInfo) {
+        viewModelScope.launch {
+            val downloadRes = appUpdateManager.downloadApk(info)
+            if (downloadRes.isSuccess) {
+                val apkFile = downloadRes.getOrNull()
+                if (apkFile != null) {
+                    val installRes = appUpdateManager.installApk(apkFile, info)
+                    if (installRes.isFailure) {
+                        val errMsg = installRes.exceptionOrNull()?.message ?: "ইনস্টলেশন শুরু করা যায়নি"
+                        SnackbarController.showError(errMsg)
+                    }
+                }
+            } else {
+                val errMsg = downloadRes.exceptionOrNull()?.message ?: "আপডেট ডাউনলোড ব্যর্থ"
+                SnackbarController.showError(errMsg)
+            }
+        }
+    }
+
+    fun installDownloadedApk(apkFile: File, info: AppUpdateInfo) {
+        val installRes = appUpdateManager.installApk(apkFile, info)
+        if (installRes.isFailure) {
+            val errMsg = installRes.exceptionOrNull()?.message ?: "ইনস্টলেশন শুরু করা যায়নি"
+            SnackbarController.showError(errMsg)
+        }
+    }
+
+    fun cancelUpdateDownload() {
+        appUpdateManager.cancelDownload()
+    }
+
+    fun dismissUpdateDialog() {
+        appUpdateManager.dismissUpdate()
     }
 }
 

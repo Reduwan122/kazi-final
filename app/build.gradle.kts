@@ -12,25 +12,41 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  val propVersionCode = project.findProperty("VERSION_CODE")?.toString()?.toIntOrNull()
+      ?: System.getenv("VERSION_CODE")?.toIntOrNull()
+      ?: 1
+  val propVersionName = project.findProperty("VERSION_NAME")?.toString()
+      ?: System.getenv("VERSION_NAME")
+      ?: "1.0.0-dev"
+
   defaultConfig {
     applicationId = "com.aistudio.kaziagro.poultr"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = propVersionCode
+    versionName = propVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val keystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
+          ?: System.getenv("KEYSTORE_PATH")
+          ?: "${rootDir}/my-upload-key.jks"
       val keyFile = file(keystorePath)
       if (keyFile.exists()) {
         storeFile = keyFile
-        storePassword = System.getenv("STORE_PASSWORD") ?: "android"
-        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+        storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            ?: System.getenv("KEYSTORE_PASSWORD")
+            ?: System.getenv("STORE_PASSWORD")
+            ?: "android"
+        keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+            ?: System.getenv("KEY_ALIAS")
+            ?: "upload"
+        keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            ?: System.getenv("KEY_PASSWORD")
+            ?: "android"
       } else {
         val rootDebugKeystore = file("${rootDir}/debug.keystore")
         if (rootDebugKeystore.exists()) {

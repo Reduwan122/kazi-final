@@ -47,6 +47,7 @@ import com.example.ui.screens.RolePermissionEditorScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SplashScreen
 import com.example.ui.screens.UserProfileScreen
+import com.example.ui.components.AppUpdateDialog
 import com.example.ui.theme.KaziAgrotechTheme
 import com.example.ui.viewmodel.PoultryViewModel
 
@@ -57,12 +58,34 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: PoultryViewModel = viewModel()
             val farmProfile by viewModel.farmProfile.collectAsState()
+            val updateState by viewModel.updateState.collectAsState()
+            val context = androidx.compose.ui.platform.LocalContext.current
+
+            // Check for updates automatically in background on startup (subject to 6h cooldown)
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                viewModel.checkForUpdates(isManual = false)
+            }
 
             KaziAgrotechTheme(darkTheme = farmProfile.isDarkMode) {
                 // One snackbar host for the whole app: several screens (login, splash) are not
                 // built on a Scaffold, and messages also come from the ViewModel and dialogs.
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainAppNavigation(viewModel = viewModel)
+
+                    AppUpdateDialog(
+                        updateState = updateState,
+                        onUpdateClick = { info -> viewModel.downloadAndInstallUpdate(context, info) },
+                        onInstallClick = { info ->
+                            val downloadedState = updateState as? com.example.data.update.UpdateState.Downloaded
+                            if (downloadedState != null) {
+                                viewModel.installDownloadedApk(downloadedState.apkFile, info)
+                            } else {
+                                viewModel.downloadAndInstallUpdate(context, info)
+                            }
+                        },
+                        onDismiss = { viewModel.dismissUpdateDialog() },
+                        onCancelDownload = { viewModel.cancelUpdateDownload() }
+                    )
 
                     AppSnackbarHost(
                         modifier = Modifier

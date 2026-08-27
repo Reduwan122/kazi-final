@@ -1,0 +1,287 @@
+name: Production Release & Auto Update
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Set Force Update (true/false)'
+        required: false
+        default: 'false'
+      custom_release_notes:
+        description: 'Custom Release Notes (optional)'
+        required: false
+        default: ''
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, Release & Update Firebase
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Node.js (for Firebase REST API updater)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Calculate Next Version
+        id: versioning
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== Inspecting Existing Releases ==="
+          
+          # Fetch latest production release tag from GitHub Releases
+          LATEST_RELEASE_TAG=$(gh release list --limit 10 --json tagName --jq '.[].tagName' 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || echo "")
+          
+          if [ -z "$LATEST_RELEASE_TAG" ]; then
+            echo "No GitHub Release found. Checking git tags..."
+            LATEST_RELEASE_TAG=$(git tag -l "v*.*.*" --sort=-v:refname | head -n 1 || echo "")
+          fi
+
+          echo "Latest tag found: '$LATEST_RELEASE_TAG'"
+
+          if [ -z "$LATEST_RELEASE_TAG" ]; then
+            NEXT_VERSION_CODE=1
+            NEXT_VERSION_NAME="1.0.1"
+            PREV_TAG=""
+          else
+            # Extract last integer component from tag (e.g., v1.0.7 -> 7)
+            PREV_CODE=$(echo "$LATEST_RELEASE_TAG" | awk -F. '{print $NF}' | tr -dc '0-9')
+            if [ -z "$PREV_CODE" ] || [ "$PREV_CODE" -lt 1 ]; then
+              PREV_CODE=1
+            fi
+            NEXT_VERSION_CODE=$((PREV_CODE + 1))
+            NEXT_VERSION_NAME="1.0.${NEXT_VERSION_CODE}"
+            PREV_TAG="$LATEST_RELEASE_TAG"
+          fi
+
+          # Collision protection: ensure tag does not already exist
+          while git rev-parse "v${NEXT_VERSION_NAME}" >/dev/null 2>&1 || gh release view "v${NEXT_VERSION_NAME}" >/dev/null 2>&1; do
+            echo "Tag v${NEXT_VERSION_NAME} already exists! Incrementing..."
+            NEXT_VERSION_CODE=$((NEXT_VERSION_CODE + 1))
+            NEXT_VERSION_NAME="1.0.${NEXT_VERSION_CODE}"
+          done
+
+          echo "Calculated Next Version Code: $NEXT_VERSION_CODE"
+          echo "Calculated Next Version Name: $NEXT_VERSION_NAME"
+          echo "Previous Release Tag: $PREV_TAG"
+
+          echo "VERSION_CODE=$NEXT_VERSION_CODE" >> $GITHUB_ENV
+          echo "VERSION_NAME=$NEXT_VERSION_NAME" >> $GITHUB_ENV
+          echo "PREV_TAG=$PREV_TAG" >> $GITHUB_ENV
+
+          echo "version_code=$NEXT_VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version_name=$NEXT_VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          mkdir -p .release-meta
+          if [ -n "${{ github.event.inputs.custom_release_notes }}" ]; then
+            echo "${{ github.event.inputs.custom_release_notes }}" > .release-meta/release_notes.md
+          else
+            if [ -n "$PREV_TAG" ]; then
+              COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"* %s (%h)" --no-merges || echo "* Bug fixes and performance improvements.")
+            else
+              COMMITS=$(git log -n 10 --pretty=format:"* %s (%h)" --no-merges || echo "* Initial release.")
+            fi
+            
+            if [ -z "$COMMITS" ]; then
+              COMMITS="* Bug fixes and performance improvements."
+            fi
+
+            cat <<EOF > .release-meta/release_notes.md
+          ## 🚀 Kazi Agrotech v${VERSION_NAME}
+
+          ### 📦 নতুন পরিবর্তনসমূহ (What's New):
+          $COMMITS
+
+          ### 🔒 ভেরিফিকেশন তথ্য (Verification):
+          - **Package:** \`com.aistudio.kaziagro.poultr\`
+          - **Version:** \`v${VERSION_NAME}\` (\`VersionCode: ${VERSION_CODE}\`)
+          - **Release Date:** \`$(date -u +%Y-%m-%d)\`
+          EOF
+          fi
+
+          echo "=== Generated Release Notes ==="
+          cat .release-meta/release_notes.md
+
+      - name: Ensure Environment File Exists
+        run: |
+          if [ ! -f .env ]; then
+            if [ -f .env.example ]; then
+              cp .env.example .env
+            else
+              touch .env
+            fi
+          fi
+
+      - name: Setup Release Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding release keystore from KEYSTORE_BASE64 secret..."
+            echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+            echo "RELEASE_KEYSTORE_PATH=$GITHUB_WORKSPACE/release.keystore" >> $GITHUB_ENV
+            echo "RELEASE_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+            echo "RELEASE_KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+            echo "RELEASE_KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+            echo "Release keystore configured from GitHub Secrets."
+          else
+            echo "KEYSTORE_BASE64 not set. Checking repository for existing keystore..."
+            if [ -f "my-upload-key.jks" ]; then
+              echo "Using my-upload-key.jks found in repository."
+              echo "RELEASE_KEYSTORE_PATH=$GITHUB_WORKSPACE/my-upload-key.jks" >> $GITHUB_ENV
+            elif [ -f "debug.keystore" ]; then
+              echo "Using debug.keystore found in repository."
+              echo "RELEASE_KEYSTORE_PATH=$GITHUB_WORKSPACE/debug.keystore" >> $GITHUB_ENV
+            else
+              echo "Generating fallback signing keystore..."
+              keytool -genkey -v -keystore release.keystore -storepass android -alias upload -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Kazi Agrotech Release,O=Kazi Agro,C=BD"
+              echo "RELEASE_KEYSTORE_PATH=$GITHUB_WORKSPACE/release.keystore" >> $GITHUB_ENV
+              echo "RELEASE_KEYSTORE_PASSWORD=android" >> $GITHUB_ENV
+              echo "RELEASE_KEY_ALIAS=upload" >> $GITHUB_ENV
+              echo "RELEASE_KEY_PASSWORD=android" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: Grant Execute Permission for Gradle
+        run: chmod +x ./gradlew
+
+      - name: Build Release APK with Gradle
+        run: |
+          echo "Starting clean Release Build with VersionCode=${VERSION_CODE}, VersionName=${VERSION_NAME}..."
+          ./gradlew clean assembleRelease \
+            -PVERSION_CODE=${VERSION_CODE} \
+            -PVERSION_NAME=${VERSION_NAME} \
+            --stacktrace \
+            --no-daemon
+
+      - name: Validate & Prepare Release APK
+        id: apk_meta
+        run: |
+          echo "=== Locating Built APK ==="
+          RAW_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          
+          if [ -z "$RAW_APK" ] || [ ! -f "$RAW_APK" ]; then
+            echo "❌ ERROR: No release APK found in app/build/outputs/apk/release!"
+            exit 1
+          fi
+
+          FINAL_APK_NAME="kazi-agrotech-${VERSION_NAME}.apk"
+          cp "$RAW_APK" "$FINAL_APK_NAME"
+
+          FILE_SIZE=$(wc -c < "$FINAL_APK_NAME" | tr -d ' ')
+          SHA256_HASH=$(sha256sum "$FINAL_APK_NAME" | awk '{print $1}')
+
+          if [ "$FILE_SIZE" -lt 1000000 ]; then
+            echo "❌ ERROR: Built APK is abnormally small (${FILE_SIZE} bytes)!"
+            exit 1
+          fi
+
+          echo "APK File: $FINAL_APK_NAME"
+          echo "APK Size: $FILE_SIZE bytes"
+          echo "APK SHA-256: $SHA256_HASH"
+
+          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_ENV
+          echo "SHA256_HASH=$SHA256_HASH" >> $GITHUB_ENV
+          echo "FINAL_APK_PATH=$FINAL_APK_NAME" >> $GITHUB_ENV
+
+          echo "file_size=$FILE_SIZE" >> $GITHUB_OUTPUT
+          echo "sha256_hash=$SHA256_HASH" >> $GITHUB_OUTPUT
+          echo "apk_path=$FINAL_APK_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release & Upload APK
+        id: create_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="v${VERSION_NAME}"
+          RELEASE_TITLE="Kazi Agrotech v${VERSION_NAME}"
+          
+          echo "Creating GitHub Release $TAG_NAME..."
+          gh release create "$TAG_NAME" "$FINAL_APK_PATH" \
+            --title "$RELEASE_TITLE" \
+            --notes-file .release-meta/release_notes.md \
+            --target "${{ github.sha }}"
+
+          DIRECT_APK_URL="https://github.com/${{ github.repository }}/releases/download/${TAG_NAME}/${FINAL_APK_PATH}"
+          echo "Direct APK Download URL: $DIRECT_APK_URL"
+          echo "APK_URL=$DIRECT_APK_URL" >> $GITHUB_ENV
+          echo "apk_url=$DIRECT_APK_URL" >> $GITHUB_OUTPUT
+
+      - name: Update Firebase Realtime Database
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+          APK_URL: ${{ env.APK_URL }}
+          SHA256_HASH: ${{ env.SHA256_HASH }}
+          FILE_SIZE: ${{ env.FILE_SIZE }}
+          RELEASE_NOTES: ${{ github.event.inputs.custom_release_notes || 'নতুন ফিচার ও পারফরম্যান্স উন্নতি।' }}
+          FORCE_UPDATE: ${{ github.event.inputs.force_update || 'false' }}
+        run: |
+          node scripts/update-firebase-metadata.js
+
+      - name: Cleanup Credentials & Temporary Files
+        if: always()
+        run: |
+          rm -f release.keystore
+          rm -rf .release-meta
+
+      - name: Generate Release Summary
+        if: always()
+        run: |
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          # 🎉 Kazi Agrotech Automated Release Summary
+
+          | Property | Value |
+          | :--- | :--- |
+          | **Version Name** | \`v${{ env.VERSION_NAME }}\` |
+          | **Version Code** | \`${{ env.VERSION_CODE }}\` |
+          | **APK Filename** | \`kazi-agrotech-${{ env.VERSION_NAME }}.apk\` |
+          | **File Size** | \`$(( ${{ env.FILE_SIZE }} / 1024 / 1024 )) MB\` (\`${{ env.FILE_SIZE }} bytes\`) |
+          | **SHA-256 Checksum** | \`${{ env.SHA256_HASH }}\` |
+          | **GitHub Release** | [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ env.VERSION_NAME }}) |
+          | **Direct APK Download** | [Download APK](${{ env.APK_URL }}) |
+
+          ### 📱 User Update Workflow:
+          1. Push to \`main\` triggered this automated build.
+          2. Android client apps will query Firebase Realtime Database.
+          3. App detects \`VersionCode: ${{ env.VERSION_CODE }}\` > installed version.
+          4. User is presented with the update dialog.
+          5. APK downloads from GitHub Releases, validates SHA-256, and installs smoothly.
+          EOF
