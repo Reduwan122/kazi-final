@@ -422,7 +422,6 @@ fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
             TableCell("বিক্রয়", width = 75.dp, isHeader = true)
             TableCell("দর (৳)", width = 60.dp, isHeader = true)
             TableCell("মোট বিক্রয় (৳)", width = 110.dp, isHeader = true)
-            TableCell("মেডিসিন (৳)", width = 85.dp, isHeader = true)
         }
 
         sortedReports.forEachIndexed { index, r ->
@@ -439,14 +438,12 @@ fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
                 TableCell(BanglaNumberFormatter.formatNumber(r.eggSold), width = 75.dp)
                 TableCell(BanglaNumberFormatter.formatDecimal(r.eggPrice), width = 60.dp)
                 TableCell(BanglaNumberFormatter.formatCurrency(r.totalSale), width = 110.dp, isBold = true)
-                TableCell(if (r.medicineCost > 0) BanglaNumberFormatter.formatCurrency(r.medicineCost) else "০", width = 85.dp)
             }
         }
 
         val totalProd = sortedReports.sumOf { it.eggProduction }
         val totalSold = sortedReports.sumOf { it.eggSold }
         val totalSale = sortedReports.sumOf { it.totalSale }
-        val totalMed = sortedReports.sumOf { it.medicineCost }
 
         Row(
             modifier = Modifier
@@ -460,7 +457,6 @@ fun DailyReportPdfTable(reports: List<DailyReportEntity>) {
             TableCell(BanglaNumberFormatter.formatNumber(totalSold), width = 75.dp, isHeader = true)
             TableCell("-", width = 60.dp, isHeader = true)
             TableCell(BanglaNumberFormatter.formatCurrency(totalSale), width = 110.dp, isHeader = true)
-            TableCell(BanglaNumberFormatter.formatCurrency(totalMed), width = 85.dp, isHeader = true)
         }
     }
 }
@@ -490,18 +486,14 @@ fun MonthlyOverviewPdfTable(reports: List<DailyReportEntity>, expenses: List<Mon
             TableCell("উৎপাদন", width = 65.dp, isHeader = true)
             TableCell("বিক্রয়", width = 65.dp, isHeader = true)
             TableCell("বিক্রয় আয় (৳)", width = 95.dp, isHeader = true)
-            TableCell("দৈনিক ব্যয় (৳)", width = 85.dp, isHeader = true)
-            TableCell("মাসিক ব্যয় (৳)", width = 85.dp, isHeader = true)
-            TableCell("মোট ব্যয় (৳)", width = 95.dp, isHeader = true)
+            TableCell("মাসিক ব্যয় (৳)", width = 95.dp, isHeader = true)
             TableCell("নিট উদ্বৃত্ত (৳)", width = 105.dp, isHeader = true)
         }
 
         var sumProd = 0
         var sumSold = 0
         var sumSale = 0.0
-        var sumDailyExp = 0.0
         var sumMonthlyExp = 0.0
-        var sumTotalExp = 0.0
         var sumNet = 0.0
 
         allDates.forEachIndexed { index, date ->
@@ -511,17 +503,13 @@ fun MonthlyOverviewPdfTable(reports: List<DailyReportEntity>, expenses: List<Mon
             val prod = r?.eggProduction ?: 0
             val sold = r?.eggSold ?: 0
             val sale = r?.totalSale ?: 0.0
-            val dailyExp = r?.medicineCost ?: 0.0
             val monthlyExp = e?.totalExpense ?: 0.0
-            val totalExp = dailyExp + monthlyExp
-            val net = sale - totalExp
+            val net = sale - monthlyExp
 
             sumProd += prod
             sumSold += sold
             sumSale += sale
-            sumDailyExp += dailyExp
             sumMonthlyExp += monthlyExp
-            sumTotalExp += totalExp
             sumNet += net
 
             val bg = if (index % 2 == 0) Color.White else Color(0xFFF9F9F9)
@@ -534,9 +522,7 @@ fun MonthlyOverviewPdfTable(reports: List<DailyReportEntity>, expenses: List<Mon
                 TableCell(if (prod > 0) BanglaNumberFormatter.formatNumber(prod) else "-", width = 65.dp)
                 TableCell(if (sold > 0) BanglaNumberFormatter.formatNumber(sold) else "-", width = 65.dp)
                 TableCell(if (sale > 0) BanglaNumberFormatter.formatCurrency(sale) else "০", width = 95.dp)
-                TableCell(if (dailyExp > 0) BanglaNumberFormatter.formatCurrency(dailyExp) else "০", width = 85.dp)
-                TableCell(if (monthlyExp > 0) BanglaNumberFormatter.formatCurrency(monthlyExp) else "০", width = 85.dp)
-                TableCell(if (totalExp > 0) BanglaNumberFormatter.formatCurrency(totalExp) else "০", width = 95.dp)
+                TableCell(if (monthlyExp > 0) BanglaNumberFormatter.formatCurrency(monthlyExp) else "০", width = 95.dp)
                 TableCell(BanglaNumberFormatter.formatCurrency(net), width = 105.dp, isBold = true)
             }
         }
@@ -550,9 +536,7 @@ fun MonthlyOverviewPdfTable(reports: List<DailyReportEntity>, expenses: List<Mon
             TableCell(BanglaNumberFormatter.formatNumber(sumProd), width = 65.dp, isHeader = true)
             TableCell(BanglaNumberFormatter.formatNumber(sumSold), width = 65.dp, isHeader = true)
             TableCell(BanglaNumberFormatter.formatCurrency(sumSale), width = 95.dp, isHeader = true)
-            TableCell(BanglaNumberFormatter.formatCurrency(sumDailyExp), width = 85.dp, isHeader = true)
-            TableCell(BanglaNumberFormatter.formatCurrency(sumMonthlyExp), width = 85.dp, isHeader = true)
-            TableCell(BanglaNumberFormatter.formatCurrency(sumTotalExp), width = 95.dp, isHeader = true)
+            TableCell(BanglaNumberFormatter.formatCurrency(sumMonthlyExp), width = 95.dp, isHeader = true)
             TableCell(BanglaNumberFormatter.formatCurrency(sumNet), width = 105.dp, isHeader = true)
         }
     }
@@ -904,218 +888,270 @@ fun generateHtmlContent(
     val currentDateStr = BanglaNumberFormatter.toBanglaDigits(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date()))
 
     val logoHtml = if (farmProfile.logoUri.isNotBlank()) {
-        """<img src="${farmProfile.logoUri}" style="max-height: 65px; max-width: 80px; object-fit: contain; border-radius: 6px;" alt="Farm Logo" />"""
+        """<img src="${farmProfile.logoUri}" style="max-height: 48px; max-width: 65px; object-fit: contain; border-radius: 4px;" alt="Farm Logo" />"""
     } else if (farmProfile.logoEmoji.isNotBlank() && farmProfile.logoEmoji != "🐔") {
         """<div class="emoji-logo">${farmProfile.logoEmoji}</div>"""
     } else {
         """<div class="emoji-logo">🐔</div>"""
     }
 
-    val tableHeaders: String
-    val tableRows = StringBuilder()
+    // Find all distinct months (YYYY-MM) present in the dataset
+    val distinctMonths = (sortedReports.map { it.date.take(7) } + sortedExpenses.map { it.date.take(7) })
+        .filter { it.length == 7 }
+        .toSortedSet()
+        .toList()
 
-    when (reportCategory) {
-        "MONTHLY" -> {
-            tableHeaders = "<th>তারিখ</th><th>উৎপাদন</th><th>বিক্রয়</th><th>বিক্রয় আয় (৳)</th><th>মাসিক ব্যয় (৳)</th><th>নিট উদ্বৃত্ত (৳)</th>"
-            val allDates = (sortedReports.map { it.date } + sortedExpenses.map { it.date }).toSortedSet().toList()
-            val reportsByDate = sortedReports.associateBy { it.date }
-            val expensesByDate = sortedExpenses.associateBy { it.date }
+    val monthsToRender = if (distinctMonths.isNotEmpty()) distinctMonths else listOf("")
+    val pagesHtml = StringBuilder()
 
-            var sumProd = 0
-            var sumSold = 0
-            var sumSale = 0.0
-            var sumMonthlyExp = 0.0
-            var sumNet = 0.0
+    for (month in monthsToRender) {
+        val monthReports = if (month.isNotBlank()) sortedReports.filter { it.date.startsWith(month) } else sortedReports
+        val monthExpenses = if (month.isNotBlank()) sortedExpenses.filter { it.date.startsWith(month) } else sortedExpenses
 
-            for (date in allDates) {
-                val r = reportsByDate[date]
-                val e = expensesByDate[date]
-                val prod = r?.eggProduction ?: 0
-                val sold = r?.eggSold ?: 0
-                val sale = r?.totalSale ?: 0.0
-                val monthlyExp = e?.totalExpense ?: 0.0
-                val net = sale - monthlyExp
-
-                sumProd += prod
-                sumSold += sold
-                sumSale += sale
-                sumMonthlyExp += monthlyExp
-                sumNet += net
-
-                tableRows.append("<tr>")
-                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
-                tableRows.append("<td>${if (prod > 0) BanglaNumberFormatter.formatNumber(prod) else "-"}</td>")
-                tableRows.append("<td>${if (sold > 0) BanglaNumberFormatter.formatNumber(sold) else "-"}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sale)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(monthlyExp)}</td>")
-                tableRows.append("<td style='font-weight:bold; color:${if (net >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(net)}</td>")
-                tableRows.append("</tr>")
-            }
-
-            tableRows.append("<tr class='total-row'>")
-            tableRows.append("<td class='text-center'>সর্বমোট</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(sumProd)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(sumSold)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumSale)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumMonthlyExp)}</td>")
-            tableRows.append("<td style='color:${if (sumNet >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(sumNet)}</td></tr>")
+        if (monthReports.isEmpty() && monthExpenses.isEmpty() && monthsToRender.size > 1) {
+            continue
         }
 
-        "SALES" -> {
-            tableHeaders = "<th>তারিখ</th><th>বিক্রির ডিম (টি)</th><th>দর/টি (৳)</th><th>দর/১০০টি (৳)</th><th>মোট বিক্রয় মূল্য (৳)</th><th>মন্তব্য</th>"
-            val salesReports = sortedReports.filter { it.eggSold > 0 || it.totalSale > 0.0 }
-            for (r in salesReports) {
-                val pricePerHundred = r.eggPrice * 100
-                val remarkText = if (r.remarks.isNotBlank()) r.remarks else "নগদ বিক্রয়"
-                tableRows.append("<tr>")
-                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggSold)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(r.eggPrice)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(pricePerHundred)}</td>")
-                tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(r.totalSale)}</td>")
-                tableRows.append("<td style='text-align:left;'>$remarkText</td>")
-                tableRows.append("</tr>")
-            }
-            val totalEggs = salesReports.sumOf { it.eggSold }
-            val totalRevenue = salesReports.sumOf { it.totalSale }
-            val avgPrice = if (totalEggs > 0) totalRevenue / totalEggs else 0.0
-            tableRows.append("<tr class='total-row'>")
-            tableRows.append("<td class='text-center'>সর্বমোট</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalEggs)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(avgPrice)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(avgPrice * 100)}</td>")
-            tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalRevenue)}</td><td>-</td></tr>")
-        }
+        val monthLabel = if (month.isNotBlank()) BanglaNumberFormatter.formatMonthYear(month) else ""
+        val pageTitle = if (monthLabel.isNotBlank() && !title.contains(monthLabel)) "$title - $monthLabel" else title
 
-        "PRODUCTION" -> {
-            tableHeaders = "<th>তারিখ</th><th>মোট মুরগি</th><th>মৃত মুরগি</th><th>মৃত্যুর হার %</th><th>ডিম উৎপাদন</th><th>লেইং হার %</th><th>মন্তব্য</th>"
-            for (r in sortedReports) {
-                val mortalityRate = if (r.currentBirds > 0) (r.deadBirds.toDouble() / r.currentBirds * 100) else 0.0
-                val layingRate = if (r.currentBirds > 0) (r.eggProduction.toDouble() / r.currentBirds * 100) else 0.0
-                val remarkText = if (r.remarks.isNotBlank()) r.remarks else "স্বাভাবিক"
-                tableRows.append("<tr>")
-                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
-                tableRows.append("<td>${if (r.deadBirds > 0) BanglaNumberFormatter.formatNumber(r.deadBirds) else "০"}</td>")
-                tableRows.append("<td>${String.format(Locale.US, "%.2f%%", mortalityRate)}</td>")
-                tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatNumber(r.eggProduction)}</td>")
-                tableRows.append("<td>${String.format(Locale.US, "%.1f%%", layingRate)}</td>")
-                tableRows.append("<td style='text-align:left;'>$remarkText</td>")
-                tableRows.append("</tr>")
-            }
-            val totalMortality = sortedReports.sumOf { it.deadBirds }
-            val totalProd = sortedReports.sumOf { it.eggProduction }
-            val avgBirds = if (sortedReports.isNotEmpty()) sortedReports.map { it.currentBirds }.average().toInt() else 0
-            val overallLayingRate = if (avgBirds > 0 && sortedReports.isNotEmpty()) (totalProd.toDouble() / (avgBirds * sortedReports.size) * 100) else 0.0
-            tableRows.append("<tr class='total-row'>")
-            tableRows.append("<td class='text-center'>সর্বমোট / গড়</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(avgBirds)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalMortality)}</td>")
-            tableRows.append("<td>-</td>")
-            tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatNumber(totalProd)}</td>")
-            tableRows.append("<td>${String.format(Locale.US, "%.1f%%", overallLayingRate)}</td><td>-</td></tr>")
-        }
+        val tableHeaders: String
+        val tableRows = StringBuilder()
 
-        "EXPENSE" -> {
-            tableHeaders = "<th>তারিখ</th><th>খাদ্য (৳)</th><th>মেডিসিন (৳)</th><th>বাজার (৳)</th><th>বেতন (৳)</th><th>মেরামত (৳)</th><th>সম্পদ (৳)</th><th>বিদ্যুৎ (৳)</th><th>অন্যান্য (৳)</th><th>মোট ব্যয় (৳)</th>"
-            for (e in sortedExpenses) {
-                tableRows.append("<tr>")
-                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(e.date)}</td>")
-                tableRows.append("<td>${if (e.feedCost > 0) BanglaNumberFormatter.formatCurrency(e.feedCost) else "০"}</td>")
-                tableRows.append("<td>${if (e.medicineCost > 0) BanglaNumberFormatter.formatCurrency(e.medicineCost) else "০"}</td>")
-                tableRows.append("<td>${if (e.staffMarket > 0) BanglaNumberFormatter.formatCurrency(e.staffMarket) else "০"}</td>")
-                tableRows.append("<td>${if (e.staffSalary > 0) BanglaNumberFormatter.formatCurrency(e.staffSalary) else "০"}</td>")
-                tableRows.append("<td>${if (e.vehicleRepair > 0) BanglaNumberFormatter.formatCurrency(e.vehicleRepair) else "০"}</td>")
-                tableRows.append("<td>${if (e.assets > 0) BanglaNumberFormatter.formatCurrency(e.assets) else "০"}</td>")
-                tableRows.append("<td>${if (e.electricityBill > 0) BanglaNumberFormatter.formatCurrency(e.electricityBill) else "০"}</td>")
-                tableRows.append("<td>${if (e.otherExpense > 0) BanglaNumberFormatter.formatCurrency(e.otherExpense) else "০"}</td>")
-                tableRows.append("<td style='font-weight:bold; color:#BA1A1A;'>${BanglaNumberFormatter.formatCurrency(e.totalExpense)}</td>")
-                tableRows.append("</tr>")
-            }
-            val totalFeed = sortedExpenses.sumOf { it.feedCost }
-            val totalMed = sortedExpenses.sumOf { it.medicineCost }
-            val totalMarket = sortedExpenses.sumOf { it.staffMarket }
-            val totalSalary = sortedExpenses.sumOf { it.staffSalary }
-            val totalVehicle = sortedExpenses.sumOf { it.vehicleRepair }
-            val totalAssets = sortedExpenses.sumOf { it.assets }
-            val totalElec = sortedExpenses.sumOf { it.electricityBill }
-            val totalOthers = sortedExpenses.sumOf { it.otherExpense }
-            val grandTotal = sortedExpenses.sumOf { it.totalExpense }
-            tableRows.append("<tr class='total-row'>")
-            tableRows.append("<td class='text-center'>সর্বমোট</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalFeed)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMed)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMarket)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalSalary)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalVehicle)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalAssets)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalElec)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalOthers)}</td>")
-            tableRows.append("<td style='color:#BA1A1A;'>${BanglaNumberFormatter.formatCurrency(grandTotal)}</td></tr>")
-        }
+        when (reportCategory) {
+            "MONTHLY" -> {
+                tableHeaders = "<th>তারিখ</th><th>উৎপাদন</th><th>বিক্রয়</th><th>বিক্রয় আয় (৳)</th><th>মাসিক ব্যয় (৳)</th><th>নিট উদ্বৃত্ত (৳)</th>"
+                val allDates = (monthReports.map { it.date } + monthExpenses.map { it.date }).toSortedSet().toList()
+                val reportsByDate = monthReports.associateBy { it.date }
+                val expensesByDate = monthExpenses.associateBy { it.date }
 
-        "PROFIT_LOSS" -> {
-            tableHeaders = "<th>তারিখ</th><th>বিক্রয় আয় (৳)</th><th>খামার ব্যয় (৳)</th><th>মুনাফা / (ঘাটতি) (৳)</th><th>স্ট্যাটাস</th>"
-            val allDates = (sortedReports.map { it.date } + sortedExpenses.map { it.date }).toSortedSet().toList()
-            val reportsByDate = sortedReports.associateBy { it.date }
-            val expensesByDate = sortedExpenses.associateBy { it.date }
+                var sumProd = 0
+                var sumSold = 0
+                var sumSale = 0.0
+                var sumMonthlyExp = 0.0
+                var sumNet = 0.0
 
-            var totalSale = 0.0
-            var totalExpense = 0.0
-            var totalNet = 0.0
+                for (date in allDates) {
+                    val r = reportsByDate[date]
+                    val e = expensesByDate[date]
+                    val prod = r?.eggProduction ?: 0
+                    val sold = r?.eggSold ?: 0
+                    val sale = r?.totalSale ?: 0.0
+                    val monthlyExp = e?.totalExpense ?: 0.0
+                    val net = sale - monthlyExp
 
-            for (date in allDates) {
-                val r = reportsByDate[date]
-                val e = expensesByDate[date]
-                val sale = r?.totalSale ?: 0.0
-                val exp = (r?.medicineCost ?: 0.0) + (e?.totalExpense ?: 0.0)
-                val net = sale - exp
-                val isProfit = net >= 0
+                    sumProd += prod
+                    sumSold += sold
+                    sumSale += sale
+                    sumMonthlyExp += monthlyExp
+                    sumNet += net
 
-                totalSale += sale
-                totalExpense += exp
-                totalNet += net
+                    tableRows.append("<tr>")
+                    tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
+                    tableRows.append("<td>${if (prod > 0) BanglaNumberFormatter.formatNumber(prod) else "-"}</td>")
+                    tableRows.append("<td>${if (sold > 0) BanglaNumberFormatter.formatNumber(sold) else "-"}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sale)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(monthlyExp)}</td>")
+                    tableRows.append("<td style='font-weight:bold; color:${if (net >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(net)}</td>")
+                    tableRows.append("</tr>")
+                }
 
-                tableRows.append("<tr>")
-                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sale)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(exp)}</td>")
-                tableRows.append("<td style='font-weight:bold; color:${if (isProfit) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(net)}</td>")
-                tableRows.append("<td style='text-align:center; font-weight:bold; color:${if (isProfit) "#0D631B" else "#BA1A1A"};'>${if (isProfit) "মুনাফা" else "ঘাটতি"}</td>")
-                tableRows.append("</tr>")
+                tableRows.append("<tr class='total-row'>")
+                tableRows.append("<td class='text-center'>সর্বমোট</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(sumProd)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(sumSold)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumSale)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumMonthlyExp)}</td>")
+                tableRows.append("<td style='color:${if (sumNet >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(sumNet)}</td></tr>")
             }
 
-            tableRows.append("<tr class='total-row'>")
-            tableRows.append("<td class='text-center'>সর্বমোট</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalSale)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalExpense)}</td>")
-            tableRows.append("<td style='color:${if (totalNet >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(totalNet)}</td>")
-            tableRows.append("<td style='text-align:center;'>${if (totalNet >= 0) "মুনাফা" else "ঘাটতি"}</td></tr>")
+            "SALES" -> {
+                tableHeaders = "<th>তারিখ</th><th>বিক্রির ডিম (টি)</th><th>দর/টি (৳)</th><th>দর/১০০টি (৳)</th><th>মোট বিক্রয় মূল্য (৳)</th><th>মন্তব্য</th>"
+                val salesReports = monthReports.filter { it.eggSold > 0 || it.totalSale > 0.0 }
+                for (r in salesReports) {
+                    val pricePerHundred = r.eggPrice * 100
+                    val remarkText = if (r.remarks.isNotBlank()) r.remarks else "নগদ বিক্রয়"
+                    tableRows.append("<tr>")
+                    tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggSold)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(r.eggPrice)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(pricePerHundred)}</td>")
+                    tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(r.totalSale)}</td>")
+                    tableRows.append("<td style='text-align:left;'>$remarkText</td>")
+                    tableRows.append("</tr>")
+                }
+                val totalEggs = salesReports.sumOf { it.eggSold }
+                val totalRevenue = salesReports.sumOf { it.totalSale }
+                val avgPrice = if (totalEggs > 0) totalRevenue / totalEggs else 0.0
+                tableRows.append("<tr class='total-row'>")
+                tableRows.append("<td class='text-center'>সর্বমোট</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalEggs)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(avgPrice)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(avgPrice * 100)}</td>")
+                tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalRevenue)}</td><td>-</td></tr>")
+            }
+
+            "PRODUCTION" -> {
+                tableHeaders = "<th>তারিখ</th><th>মোট মুরগি</th><th>মৃত মুরগি</th><th>মৃত্যুর হার %</th><th>ডিম উৎপাদন</th><th>লেইং হার %</th><th>মন্তব্য</th>"
+                for (r in monthReports) {
+                    val mortalityRate = if (r.currentBirds > 0) (r.deadBirds.toDouble() / r.currentBirds * 100) else 0.0
+                    val layingRate = if (r.currentBirds > 0) (r.eggProduction.toDouble() / r.currentBirds * 100) else 0.0
+                    val remarkText = if (r.remarks.isNotBlank()) r.remarks else "স্বাভাবিক"
+                    tableRows.append("<tr>")
+                    tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
+                    tableRows.append("<td>${if (r.deadBirds > 0) BanglaNumberFormatter.formatNumber(r.deadBirds) else "০"}</td>")
+                    tableRows.append("<td>${String.format(Locale.US, "%.2f%%", mortalityRate)}</td>")
+                    tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatNumber(r.eggProduction)}</td>")
+                    tableRows.append("<td>${String.format(Locale.US, "%.1f%%", layingRate)}</td>")
+                    tableRows.append("<td style='text-align:left;'>$remarkText</td>")
+                    tableRows.append("</tr>")
+                }
+                val totalMortality = monthReports.sumOf { it.deadBirds }
+                val totalProd = monthReports.sumOf { it.eggProduction }
+                val avgBirds = if (monthReports.isNotEmpty()) monthReports.map { it.currentBirds }.average().toInt() else 0
+                val overallLayingRate = if (avgBirds > 0 && monthReports.isNotEmpty()) (totalProd.toDouble() / (avgBirds * monthReports.size) * 100) else 0.0
+                tableRows.append("<tr class='total-row'>")
+                tableRows.append("<td class='text-center'>সর্বমোট / গড়</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(avgBirds)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalMortality)}</td>")
+                tableRows.append("<td>-</td>")
+                tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatNumber(totalProd)}</td>")
+                tableRows.append("<td>${String.format(Locale.US, "%.1f%%", overallLayingRate)}</td><td>-</td></tr>")
+            }
+
+            "EXPENSE" -> {
+                tableHeaders = "<th>তারিখ</th><th>খাদ্য (৳)</th><th>মেডিসিন (৳)</th><th>বাজার (৳)</th><th>বেতন (৳)</th><th>মেরামত (৳)</th><th>সম্পদ (৳)</th><th>বিদ্যুৎ (৳)</th><th>অন্যান্য (৳)</th><th>মোট ব্যয় (৳)</th>"
+                for (e in monthExpenses) {
+                    tableRows.append("<tr>")
+                    tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(e.date)}</td>")
+                    tableRows.append("<td>${if (e.feedCost > 0) BanglaNumberFormatter.formatCurrency(e.feedCost) else "০"}</td>")
+                    tableRows.append("<td>${if (e.medicineCost > 0) BanglaNumberFormatter.formatCurrency(e.medicineCost) else "০"}</td>")
+                    tableRows.append("<td>${if (e.staffMarket > 0) BanglaNumberFormatter.formatCurrency(e.staffMarket) else "০"}</td>")
+                    tableRows.append("<td>${if (e.staffSalary > 0) BanglaNumberFormatter.formatCurrency(e.staffSalary) else "০"}</td>")
+                    tableRows.append("<td>${if (e.vehicleRepair > 0) BanglaNumberFormatter.formatCurrency(e.vehicleRepair) else "০"}</td>")
+                    tableRows.append("<td>${if (e.assets > 0) BanglaNumberFormatter.formatCurrency(e.assets) else "০"}</td>")
+                    tableRows.append("<td>${if (e.electricityBill > 0) BanglaNumberFormatter.formatCurrency(e.electricityBill) else "০"}</td>")
+                    tableRows.append("<td>${if (e.otherExpense > 0) BanglaNumberFormatter.formatCurrency(e.otherExpense) else "০"}</td>")
+                    tableRows.append("<td style='font-weight:bold; color:#BA1A1A;'>${BanglaNumberFormatter.formatCurrency(e.totalExpense)}</td>")
+                    tableRows.append("</tr>")
+                }
+                val totalFeed = monthExpenses.sumOf { it.feedCost }
+                val totalMed = monthExpenses.sumOf { it.medicineCost }
+                val totalMarket = monthExpenses.sumOf { it.staffMarket }
+                val totalSalary = monthExpenses.sumOf { it.staffSalary }
+                val totalVehicle = monthExpenses.sumOf { it.vehicleRepair }
+                val totalAssets = monthExpenses.sumOf { it.assets }
+                val totalElec = monthExpenses.sumOf { it.electricityBill }
+                val totalOthers = monthExpenses.sumOf { it.otherExpense }
+                val grandTotal = monthExpenses.sumOf { it.totalExpense }
+                tableRows.append("<tr class='total-row'>")
+                tableRows.append("<td class='text-center'>সর্বমোট</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalFeed)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMed)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMarket)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalSalary)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalVehicle)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalAssets)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalElec)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalOthers)}</td>")
+                tableRows.append("<td style='color:#BA1A1A;'>${BanglaNumberFormatter.formatCurrency(grandTotal)}</td></tr>")
+            }
+
+            "PROFIT_LOSS" -> {
+                tableHeaders = "<th>তারিখ</th><th>বিক্রয় আয় (৳)</th><th>খামার ব্যয় (৳)</th><th>মুনাফা / (ঘাটতি) (৳)</th><th>স্ট্যাটাস</th>"
+                val allDates = (monthReports.map { it.date } + monthExpenses.map { it.date }).toSortedSet().toList()
+                val reportsByDate = monthReports.associateBy { it.date }
+                val expensesByDate = monthExpenses.associateBy { it.date }
+
+                var totalSale = 0.0
+                var totalExpense = 0.0
+                var totalNet = 0.0
+
+                for (date in allDates) {
+                    val r = reportsByDate[date]
+                    val e = expensesByDate[date]
+                    val sale = r?.totalSale ?: 0.0
+                    val exp = (r?.medicineCost ?: 0.0) + (e?.totalExpense ?: 0.0)
+                    val net = sale - exp
+                    val isProfit = net >= 0
+
+                    totalSale += sale
+                    totalExpense += exp
+                    totalNet += net
+
+                    tableRows.append("<tr>")
+                    tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sale)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(exp)}</td>")
+                    tableRows.append("<td style='font-weight:bold; color:${if (isProfit) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(net)}</td>")
+                    tableRows.append("<td style='text-align:center; font-weight:bold; color:${if (isProfit) "#0D631B" else "#BA1A1A"};'>${if (isProfit) "মুনাফা" else "ঘাটতি"}</td>")
+                    tableRows.append("</tr>")
+                }
+
+                tableRows.append("<tr class='total-row'>")
+                tableRows.append("<td class='text-center'>সর্বমোট</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalSale)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalExpense)}</td>")
+                tableRows.append("<td style='color:${if (totalNet >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(totalNet)}</td>")
+                tableRows.append("<td style='text-align:center;'>${if (totalNet >= 0) "মুনাফা" else "ঘাটতি"}</td></tr>")
+            }
+
+            else -> { // DAILY
+                tableHeaders = "<th>তারিখ</th><th>মুরগি</th><th>মৃত</th><th>উৎপাদন</th><th>বিক্রয়</th><th>দর (৳)</th><th>মোট বিক্রয় (৳)</th>"
+                for (r in monthReports) {
+                    tableRows.append("<tr>")
+                    tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
+                    tableRows.append("<td>${if (r.deadBirds > 0) BanglaNumberFormatter.formatNumber(r.deadBirds) else "০"}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggProduction)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggSold)}</td>")
+                    tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(r.eggPrice)}</td>")
+                    tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(r.totalSale)}</td>")
+                    tableRows.append("</tr>")
+                }
+                val totalProd = monthReports.sumOf { it.eggProduction }
+                val totalSold = monthReports.sumOf { it.eggSold }
+                val totalSale = monthReports.sumOf { it.totalSale }
+                tableRows.append("<tr class='total-row'>")
+                tableRows.append("<td class='text-center'>সর্বমোট</td><td>-</td><td>-</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalProd)}</td>")
+                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalSold)}</td>")
+                tableRows.append("<td>-</td>")
+                tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalSale)}</td></tr>")
+            }
         }
 
-        else -> { // DAILY
-            tableHeaders = "<th>তারিখ</th><th>মুরগি</th><th>মৃত</th><th>উৎপাদন</th><th>বিক্রয়</th><th>দর (৳)</th><th>মোট বিক্রয় (৳)</th>"
-            for (r in sortedReports) {
-                tableRows.append("<tr>")
-                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
-                tableRows.append("<td>${if (r.deadBirds > 0) BanglaNumberFormatter.formatNumber(r.deadBirds) else "০"}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggProduction)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggSold)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(r.eggPrice)}</td>")
-                tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(r.totalSale)}</td>")
-                tableRows.append("</tr>")
-            }
-            val totalProd = sortedReports.sumOf { it.eggProduction }
-            val totalSold = sortedReports.sumOf { it.eggSold }
-            val totalSale = sortedReports.sumOf { it.totalSale }
-            tableRows.append("<tr class='total-row'>")
-            tableRows.append("<td class='text-center'>সর্বমোট</td><td>-</td><td>-</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalProd)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalSold)}</td>")
-            tableRows.append("<td>-</td>")
-            tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalSale)}</td></tr>")
-        }
+        pagesHtml.append("""
+            <div class="page-container">
+                <div class="header">
+                    <div class="header-logo">$logoHtml</div>
+                    <div class="header-text">
+                        <h1 class="title">${farmProfile.farmName}</h1>
+                        <div class="subtitle">লেয়ার পোল্ট্রি ফার্ম</div>
+                        <div class="subtitle">প্রোঃ ${farmProfile.ownerName} | মোবাইলঃ ${farmProfile.mobileNumber}</div>
+                        <div class="subtitle">ঠিকানাঃ ${farmProfile.address}</div>
+                    </div>
+                    <div class="header-spacer"></div>
+                </div>
+                <div class="meta">
+                    <strong>$pageTitle</strong>
+                    <span>তারিখ: $currentDateStr</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>$tableHeaders</tr>
+                    </thead>
+                    <tbody>
+                        $tableRows
+                    </tbody>
+                </table>
+                <div class="footer-signatures">
+                    <div class="sig-line">প্রস্তুতকারক</div>
+                    <div class="sig-line">অনুমোদনকারী</div>
+                </div>
+            </div>
+        """.trimIndent())
     }
 
     return """
@@ -1127,18 +1163,35 @@ fun generateHtmlContent(
             <style>
                 @page {
                     size: A4 portrait;
-                    margin: 12mm 15mm;
+                    margin: 6mm 8mm 6mm 8mm;
+                }
+
+                *, *:before, *:after {
+                    box-sizing: border-box;
                 }
 
                 body {
                     font-family: 'SolaimanLipi', 'Noto Sans Bengali', Arial, sans-serif;
                     margin: 0;
-                    padding: 10px;
+                    padding: 0;
                     color: #111111;
                     background-color: #ffffff;
-                    font-size: 12px;
+                    font-size: 11px;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
+                }
+
+                .page-container {
+                    width: 100%;
+                    page-break-after: always;
+                    break-after: page;
+                    box-sizing: border-box;
+                    padding: 0;
+                }
+
+                .page-container:last-child {
+                    page-break-after: avoid;
+                    break-after: auto;
                 }
 
                 /* ─── অফিশিয়াল প্যাড / লেটারহেড ─── */
@@ -1146,25 +1199,25 @@ fun generateHtmlContent(
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    border-bottom: 2.5px solid #0D631B;
-                    padding-bottom: 10px;
-                    margin-bottom: 12px;
+                    border-bottom: 2px solid #0D631B;
+                    padding-bottom: 4px;
+                    margin-bottom: 6px;
                 }
 
                 .header-logo {
-                    flex: 0 0 75px;
+                    flex: 0 0 65px;
                     text-align: left;
                 }
 
                 .header-logo img {
-                    max-height: 65px;
-                    max-width: 80px;
+                    max-height: 48px;
+                    max-width: 65px;
                     object-fit: contain;
-                    border-radius: 6px;
+                    border-radius: 4px;
                 }
 
                 .header-logo .emoji-logo {
-                    font-size: 40px;
+                    font-size: 32px;
                     line-height: 1;
                 }
 
@@ -1174,28 +1227,24 @@ fun generateHtmlContent(
                 }
 
                 .header-text .title {
-                    font-size: 22px;
+                    font-size: 18px;
                     font-weight: bold;
                     color: #0D631B;
                     margin: 0;
-                    letter-spacing: 0.5px;
+                    line-height: 1.1;
+                    letter-spacing: 0.3px;
                 }
 
                 .header-text .subtitle {
-                    font-size: 12px;
+                    font-size: 10.5px;
                     color: #222222;
-                    margin: 2px 0;
+                    margin: 1px 0;
                     font-weight: 500;
-                }
-
-                .header-text .contact-info {
-                    font-size: 11px;
-                    color: #444444;
-                    margin: 2px 0;
+                    line-height: 1.2;
                 }
 
                 .header-spacer {
-                    flex: 0 0 75px;
+                    flex: 0 0 65px;
                 }
 
                 /* ─── রিপোর্ট মেটাডাটা ও তারিখ ─── */
@@ -1203,18 +1252,19 @@ fun generateHtmlContent(
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 12px;
-                    font-size: 13px;
+                    margin-bottom: 6px;
+                    font-size: 11.5px;
                     font-weight: 600;
                 }
 
                 .meta strong {
-                    font-size: 13px;
+                    font-size: 12px;
                     color: #111111;
                 }
 
                 .meta span {
                     color: #444444;
+                    font-size: 11px;
                 }
 
                 /* ─── ডেটা টেবিল (আধুনিক ডিজাইন) ─── */
@@ -1222,18 +1272,19 @@ fun generateHtmlContent(
                     width: 100%;
                     border-collapse: separate;
                     border-spacing: 0;
-                    margin-top: 15px;
-                    font-size: 13px;
-                    border-radius: 8px;
+                    margin-top: 4px;
+                    font-size: 11px;
+                    border-radius: 6px;
                     overflow: hidden;
-                    border: 1px solid #E0E0E0;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+                    border: 1px solid #D8D8D8;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+                    page-break-inside: auto;
                 }
 
                 th, td {
-                    padding: 6px 10px;
+                    padding: 3.5px 6px;
                     text-align: right;
-                    line-height: 1.3;
+                    line-height: 1.25;
                     border-bottom: 1px solid #E0E0E0;
                     border-right: 1px solid #E0E0E0;
                     font-weight: 500;
@@ -1252,9 +1303,9 @@ fun generateHtmlContent(
                     color: #FFFFFF !important;
                     font-weight: 600;
                     text-align: center;
-                    font-size: 12px;
-                    letter-spacing: 0.3px;
-                    padding: 8px 10px;
+                    font-size: 10.5px;
+                    letter-spacing: 0.2px;
+                    padding: 5px 6px;
                 }
 
                 td.text-center {
@@ -1265,68 +1316,40 @@ fun generateHtmlContent(
                     background-color: #F4F9F5;
                 }
 
-                tr:hover {
-                    background-color: #EBF4EC;
-                }
-
                 tr.total-row {
                     background-color: #E8F5E9 !important;
+                    page-break-inside: avoid;
                 }
 
                 tr.total-row td {
                     color: #0B4D16;
                     border-top: 2px solid #0D631B;
                     font-weight: 700;
-                    font-size: 13px;
-                    padding: 8px 10px;
+                    font-size: 11.5px;
+                    padding: 4.5px 6px;
                 }
 
                 /* ─── সিগনেচার সেকশন ─── */
                 .footer-signatures {
                     display: flex;
                     justify-content: space-between;
-                    margin-top: 60px;
+                    margin-top: 22px;
                     padding: 0 20px;
                     page-break-inside: avoid;
                 }
 
                 .sig-line {
                     border-top: 1px solid #444444;
-                    width: 120px;
+                    width: 110px;
                     text-align: center;
-                    padding-top: 4px;
-                    font-size: 12px;
+                    padding-top: 3px;
+                    font-size: 10.5px;
                     font-weight: 500;
                 }
             </style>
         </head>
         <body>
-            <div class="header">
-                <div class="header-logo">$logoHtml</div>
-                <div class="header-text">
-                    <h1 class="title">${farmProfile.farmName}</h1>
-                    <div class="subtitle">লেয়ার পোল্ট্রি ফার্ম</div>
-                    <div class="subtitle">প্রোঃ ${farmProfile.ownerName} | মোবাইলঃ ${farmProfile.mobileNumber}</div>
-                    <div class="subtitle">ঠিকানাঃ ${farmProfile.address}</div>
-                </div>
-                <div class="header-spacer"></div>
-            </div>
-            <div class="meta">
-                <strong>$title</strong>
-                <span>তারিখ: $currentDateStr</span>
-            </div>
-            <table>
-                <thead>
-                    <tr>$tableHeaders</tr>
-                </thead>
-                <tbody>
-                    $tableRows
-                </tbody>
-            </table>
-            <div class="footer-signatures">
-                <div class="sig-line">প্রস্তুতকারক</div>
-                <div class="sig-line">অনুমোদনকারী</div>
-            </div>
+            $pagesHtml
         </body>
         </html>
     """.trimIndent()
