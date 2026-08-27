@@ -57,13 +57,12 @@ class DriveBackupManager(private val context: Context) {
         .build()
 
     /**
-     * Obtains official GoogleSignInClient with the narrow drive.file scope
+     * Obtains official GoogleSignInClient
      */
     fun getGoogleSignInClient(): GoogleSignInClient {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestProfile()
-            .requestScopes(Scope(DRIVE_SCOPE))
             .build()
         return GoogleSignIn.getClient(context, gso)
     }

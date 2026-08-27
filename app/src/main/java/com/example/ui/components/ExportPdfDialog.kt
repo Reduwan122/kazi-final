@@ -1173,7 +1173,7 @@ fun generateHtmlContent(
             <style>
                 @page {
                     size: A4 portrait;
-                    margin: 8mm 10mm 8mm 10mm;
+                    margin: 14mm 10mm 10mm 10mm;
                 }
 
                 *, *:before, *:after {
@@ -1210,8 +1210,9 @@ fun generateHtmlContent(
                     align-items: center;
                     justify-content: space-between;
                     border-bottom: 2.5px solid #0D631B;
-                    padding-bottom: 6px;
-                    margin-bottom: 10px;
+                    padding-top: 2px;
+                    padding-bottom: 8px;
+                    margin-bottom: 12px;
                 }
 
                 .header-logo {
@@ -1262,7 +1263,7 @@ fun generateHtmlContent(
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 8px;
+                    margin-bottom: 10px;
                     font-size: 12.5px;
                     font-weight: 600;
                 }
@@ -1357,18 +1358,18 @@ fun generateHtmlContent(
                 }
 
                 .footer-signatures.sig-standard {
-                    margin-top: 35px;
+                    margin-top: 55px;
                 }
 
                 .footer-signatures.sig-spacious {
-                    margin-top: 55px;
+                    margin-top: 85px;
                 }
 
                 .sig-line {
                     border-top: 1px solid #444444;
-                    width: 120px;
+                    width: 125px;
                     text-align: center;
-                    padding-top: 4px;
+                    padding-top: 5px;
                     font-size: 11.5px;
                     font-weight: 500;
                 }
