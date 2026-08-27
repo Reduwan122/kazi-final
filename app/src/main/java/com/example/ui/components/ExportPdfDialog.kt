@@ -904,11 +904,11 @@ fun generateHtmlContent(
     val currentDateStr = BanglaNumberFormatter.toBanglaDigits(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date()))
 
     val logoHtml = if (farmProfile.logoUri.isNotBlank()) {
-        """<img src="${farmProfile.logoUri}" style="max-height: 60px; max-width: 90px; object-fit: contain; border-radius: 6px;" alt="Farm Logo" />"""
+        """<img src="${farmProfile.logoUri}" style="max-height: 65px; max-width: 80px; object-fit: contain; border-radius: 6px;" alt="Farm Logo" />"""
     } else if (farmProfile.logoEmoji.isNotBlank() && farmProfile.logoEmoji != "🐔") {
-        """<div style="font-size: 32px;">${farmProfile.logoEmoji}</div>"""
+        """<div class="emoji-logo">${farmProfile.logoEmoji}</div>"""
     } else {
-        """<div style="font-size: 32px;">🐔</div>"""
+        """<div class="emoji-logo">🐔</div>"""
     }
 
     val tableHeaders: String
@@ -916,7 +916,7 @@ fun generateHtmlContent(
 
     when (reportCategory) {
         "MONTHLY" -> {
-            tableHeaders = "<th>তারিখ</th><th>উৎপাদন</th><th>বিক্রয়</th><th>বিক্রয় আয় (৳)</th><th>দৈনিক ব্যয় (৳)</th><th>মাসিক ব্যয় (৳)</th><th>মোট ব্যয় (৳)</th><th>নিট উদ্বৃত্ত (৳)</th>"
+            tableHeaders = "<th>তারিখ</th><th>উৎপাদন</th><th>বিক্রয়</th><th>বিক্রয় আয় (৳)</th><th>মাসিক ব্যয় (৳)</th><th>নিট উদ্বৃত্ত (৳)</th>"
             val allDates = (sortedReports.map { it.date } + sortedExpenses.map { it.date }).toSortedSet().toList()
             val reportsByDate = sortedReports.associateBy { it.date }
             val expensesByDate = sortedExpenses.associateBy { it.date }
@@ -924,9 +924,7 @@ fun generateHtmlContent(
             var sumProd = 0
             var sumSold = 0
             var sumSale = 0.0
-            var sumDailyExp = 0.0
             var sumMonthlyExp = 0.0
-            var sumTotalExp = 0.0
             var sumNet = 0.0
 
             for (date in allDates) {
@@ -935,39 +933,31 @@ fun generateHtmlContent(
                 val prod = r?.eggProduction ?: 0
                 val sold = r?.eggSold ?: 0
                 val sale = r?.totalSale ?: 0.0
-                val dailyExp = r?.medicineCost ?: 0.0
                 val monthlyExp = e?.totalExpense ?: 0.0
-                val totalExp = dailyExp + monthlyExp
-                val net = sale - totalExp
+                val net = sale - monthlyExp
 
                 sumProd += prod
                 sumSold += sold
                 sumSale += sale
-                sumDailyExp += dailyExp
                 sumMonthlyExp += monthlyExp
-                sumTotalExp += totalExp
                 sumNet += net
 
                 tableRows.append("<tr>")
-                tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
+                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
                 tableRows.append("<td>${if (prod > 0) BanglaNumberFormatter.formatNumber(prod) else "-"}</td>")
                 tableRows.append("<td>${if (sold > 0) BanglaNumberFormatter.formatNumber(sold) else "-"}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sale)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(dailyExp)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(monthlyExp)}</td>")
-                tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalExp)}</td>")
                 tableRows.append("<td style='font-weight:bold; color:${if (net >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(net)}</td>")
                 tableRows.append("</tr>")
             }
 
-            tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
-            tableRows.append("<td style='text-align:center;'>সর্বমোট</td>")
+            tableRows.append("<tr class='total-row'>")
+            tableRows.append("<td class='text-center'>সর্বমোট</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(sumProd)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(sumSold)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumSale)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumDailyExp)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumMonthlyExp)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sumTotalExp)}</td>")
             tableRows.append("<td style='color:${if (sumNet >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(sumNet)}</td></tr>")
         }
 
@@ -978,7 +968,7 @@ fun generateHtmlContent(
                 val pricePerHundred = r.eggPrice * 100
                 val remarkText = if (r.remarks.isNotBlank()) r.remarks else "নগদ বিক্রয়"
                 tableRows.append("<tr>")
-                tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
+                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggSold)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(r.eggPrice)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(pricePerHundred)}</td>")
@@ -989,8 +979,8 @@ fun generateHtmlContent(
             val totalEggs = salesReports.sumOf { it.eggSold }
             val totalRevenue = salesReports.sumOf { it.totalSale }
             val avgPrice = if (totalEggs > 0) totalRevenue / totalEggs else 0.0
-            tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
-            tableRows.append("<td style='text-align:center;'>সর্বমোট</td>")
+            tableRows.append("<tr class='total-row'>")
+            tableRows.append("<td class='text-center'>সর্বমোট</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalEggs)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(avgPrice)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(avgPrice * 100)}</td>")
@@ -1004,7 +994,7 @@ fun generateHtmlContent(
                 val layingRate = if (r.currentBirds > 0) (r.eggProduction.toDouble() / r.currentBirds * 100) else 0.0
                 val remarkText = if (r.remarks.isNotBlank()) r.remarks else "স্বাভাবিক"
                 tableRows.append("<tr>")
-                tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
+                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
                 tableRows.append("<td>${if (r.deadBirds > 0) BanglaNumberFormatter.formatNumber(r.deadBirds) else "০"}</td>")
                 tableRows.append("<td>${String.format(Locale.US, "%.2f%%", mortalityRate)}</td>")
@@ -1017,8 +1007,8 @@ fun generateHtmlContent(
             val totalProd = sortedReports.sumOf { it.eggProduction }
             val avgBirds = if (sortedReports.isNotEmpty()) sortedReports.map { it.currentBirds }.average().toInt() else 0
             val overallLayingRate = if (avgBirds > 0 && sortedReports.isNotEmpty()) (totalProd.toDouble() / (avgBirds * sortedReports.size) * 100) else 0.0
-            tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
-            tableRows.append("<td style='text-align:center;'>সর্বমোট / গড়</td>")
+            tableRows.append("<tr class='total-row'>")
+            tableRows.append("<td class='text-center'>সর্বমোট / গড়</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(avgBirds)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalMortality)}</td>")
             tableRows.append("<td>-</td>")
@@ -1030,7 +1020,7 @@ fun generateHtmlContent(
             tableHeaders = "<th>তারিখ</th><th>খাদ্য (৳)</th><th>মেডিসিন (৳)</th><th>বাজার (৳)</th><th>বেতন (৳)</th><th>মেরামত (৳)</th><th>সম্পদ (৳)</th><th>বিদ্যুৎ (৳)</th><th>অন্যান্য (৳)</th><th>মোট ব্যয় (৳)</th>"
             for (e in sortedExpenses) {
                 tableRows.append("<tr>")
-                tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(e.date)}</td>")
+                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(e.date)}</td>")
                 tableRows.append("<td>${if (e.feedCost > 0) BanglaNumberFormatter.formatCurrency(e.feedCost) else "০"}</td>")
                 tableRows.append("<td>${if (e.medicineCost > 0) BanglaNumberFormatter.formatCurrency(e.medicineCost) else "০"}</td>")
                 tableRows.append("<td>${if (e.staffMarket > 0) BanglaNumberFormatter.formatCurrency(e.staffMarket) else "০"}</td>")
@@ -1051,8 +1041,8 @@ fun generateHtmlContent(
             val totalElec = sortedExpenses.sumOf { it.electricityBill }
             val totalOthers = sortedExpenses.sumOf { it.otherExpense }
             val grandTotal = sortedExpenses.sumOf { it.totalExpense }
-            tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
-            tableRows.append("<td style='text-align:center;'>সর্বমোট</td>")
+            tableRows.append("<tr class='total-row'>")
+            tableRows.append("<td class='text-center'>সর্বমোট</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalFeed)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMed)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMarket)}</td>")
@@ -1087,7 +1077,7 @@ fun generateHtmlContent(
                 totalNet += net
 
                 tableRows.append("<tr>")
-                tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
+                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(date)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(sale)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(exp)}</td>")
                 tableRows.append("<td style='font-weight:bold; color:${if (isProfit) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(net)}</td>")
@@ -1095,8 +1085,8 @@ fun generateHtmlContent(
                 tableRows.append("</tr>")
             }
 
-            tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
-            tableRows.append("<td style='text-align:center;'>সর্বমোট</td>")
+            tableRows.append("<tr class='total-row'>")
+            tableRows.append("<td class='text-center'>সর্বমোট</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalSale)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalExpense)}</td>")
             tableRows.append("<td style='color:${if (totalNet >= 0) "#0D631B" else "#BA1A1A"};'>${BanglaNumberFormatter.formatCurrency(totalNet)}</td>")
@@ -1104,52 +1094,210 @@ fun generateHtmlContent(
         }
 
         else -> { // DAILY
-            tableHeaders = "<th>তারিখ</th><th>মুরগি</th><th>মৃত</th><th>উৎপাদন</th><th>বিক্রয়</th><th>দর (৳)</th><th>মোট বিক্রয় (৳)</th><th>মেডিসিন (৳)</th>"
+            tableHeaders = "<th>তারিখ</th><th>মুরগি</th><th>মৃত</th><th>উৎপাদন</th><th>বিক্রয়</th><th>দর (৳)</th><th>মোট বিক্রয় (৳)</th>"
             for (r in sortedReports) {
                 tableRows.append("<tr>")
-                tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
+                tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
                 tableRows.append("<td>${if (r.deadBirds > 0) BanglaNumberFormatter.formatNumber(r.deadBirds) else "০"}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggProduction)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.eggSold)}</td>")
                 tableRows.append("<td>${BanglaNumberFormatter.formatDecimal(r.eggPrice)}</td>")
                 tableRows.append("<td style='font-weight:bold; color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(r.totalSale)}</td>")
-                tableRows.append("<td>${if (r.medicineCost > 0) BanglaNumberFormatter.formatCurrency(r.medicineCost) else "০"}</td>")
                 tableRows.append("</tr>")
             }
             val totalProd = sortedReports.sumOf { it.eggProduction }
             val totalSold = sortedReports.sumOf { it.eggSold }
             val totalSale = sortedReports.sumOf { it.totalSale }
-            val totalMed = sortedReports.sumOf { it.medicineCost }
-            tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
-            tableRows.append("<td style='text-align:center;'>সর্বমোট</td><td>-</td><td>-</td>")
+            tableRows.append("<tr class='total-row'>")
+            tableRows.append("<td class='text-center'>সর্বমোট</td><td>-</td><td>-</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalProd)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(totalSold)}</td>")
             tableRows.append("<td>-</td>")
-            tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalSale)}</td>")
-            tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalMed)}</td></tr>")
+            tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalSale)}</td></tr>")
         }
     }
 
     return """
         <!DOCTYPE html>
-        <html>
+        <html lang="bn">
         <head>
             <meta charset="utf-8">
+            <title>${farmProfile.farmName} - $title</title>
             <style>
-                body { font-family: 'SolaimanLipi', Arial, sans-serif; margin: 20px; color: #111; }
-                .header { display: flex; align-items: center; border-bottom: 2px solid #0D631B; padding-bottom: 8px; margin-bottom: 12px; }
-                .header-logo { flex: 0 0 90px; margin-right: 14px; text-align: left; }
-                .header-text { flex: 1 1 auto; text-align: center; }
-                .header-spacer { flex: 0 0 90px; margin-left: 14px; }
-                .title { font-size: 22px; font-weight: bold; color: #0D631B; margin: 0; }
-                .subtitle { font-size: 13px; color: #444; margin: 3px 0; }
-                .meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
-                th, td { border: 1px solid #777; padding: 6px 4px; text-align: right; }
-                th { background-color: #E8F5E9; font-weight: bold; text-align: center; }
-                .footer-signatures { display: flex; justify-content: space-between; margin-top: 60px; font-size: 12px; }
-                .sig-line { border-top: 1px solid #444; width: 120px; text-align: center; padding-top: 4px; }
+                @page {
+                    size: A4 portrait;
+                    margin: 12mm 15mm;
+                }
+
+                body {
+                    font-family: 'SolaimanLipi', 'Noto Sans Bengali', Arial, sans-serif;
+                    margin: 0;
+                    padding: 10px;
+                    color: #111111;
+                    background-color: #ffffff;
+                    font-size: 12px;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+
+                /* ─── অফিশিয়াল প্যাড / লেটারহেড ─── */
+                .header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    border-bottom: 2.5px solid #0D631B;
+                    padding-bottom: 10px;
+                    margin-bottom: 12px;
+                }
+
+                .header-logo {
+                    flex: 0 0 75px;
+                    text-align: left;
+                }
+
+                .header-logo img {
+                    max-height: 65px;
+                    max-width: 80px;
+                    object-fit: contain;
+                    border-radius: 6px;
+                }
+
+                .header-logo .emoji-logo {
+                    font-size: 40px;
+                    line-height: 1;
+                }
+
+                .header-text {
+                    flex: 1 1 auto;
+                    text-align: center;
+                }
+
+                .header-text .title {
+                    font-size: 22px;
+                    font-weight: bold;
+                    color: #0D631B;
+                    margin: 0;
+                    letter-spacing: 0.5px;
+                }
+
+                .header-text .subtitle {
+                    font-size: 12px;
+                    color: #222222;
+                    margin: 2px 0;
+                    font-weight: 500;
+                }
+
+                .header-text .contact-info {
+                    font-size: 11px;
+                    color: #444444;
+                    margin: 2px 0;
+                }
+
+                .header-spacer {
+                    flex: 0 0 75px;
+                }
+
+                /* ─── রিপোর্ট মেটাডাটা ও তারিখ ─── */
+                .meta {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                    font-size: 13px;
+                    font-weight: 600;
+                }
+
+                .meta strong {
+                    font-size: 13px;
+                    color: #111111;
+                }
+
+                .meta span {
+                    color: #444444;
+                }
+
+                /* ─── ডেটা টেবিল (আধুনিক ডিজাইন) ─── */
+                table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                    margin-top: 15px;
+                    font-size: 13px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    border: 1px solid #E0E0E0;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+                }
+
+                th, td {
+                    padding: 6px 10px;
+                    text-align: right;
+                    line-height: 1.3;
+                    border-bottom: 1px solid #E0E0E0;
+                    border-right: 1px solid #E0E0E0;
+                    font-weight: 500;
+                }
+
+                th:last-child, td:last-child {
+                    border-right: none;
+                }
+
+                tbody tr:last-child td {
+                    border-bottom: none;
+                }
+
+                th {
+                    background-color: #0D631B !important;
+                    color: #FFFFFF !important;
+                    font-weight: 600;
+                    text-align: center;
+                    font-size: 12px;
+                    letter-spacing: 0.3px;
+                    padding: 8px 10px;
+                }
+
+                td.text-center {
+                    text-align: center;
+                }
+
+                tr:nth-child(even) {
+                    background-color: #F4F9F5;
+                }
+
+                tr:hover {
+                    background-color: #EBF4EC;
+                }
+
+                tr.total-row {
+                    background-color: #E8F5E9 !important;
+                }
+
+                tr.total-row td {
+                    color: #0B4D16;
+                    border-top: 2px solid #0D631B;
+                    font-weight: 700;
+                    font-size: 13px;
+                    padding: 8px 10px;
+                }
+
+                /* ─── সিগনেচার সেকশন ─── */
+                .footer-signatures {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 60px;
+                    padding: 0 20px;
+                    page-break-inside: avoid;
+                }
+
+                .sig-line {
+                    border-top: 1px solid #444444;
+                    width: 120px;
+                    text-align: center;
+                    padding-top: 4px;
+                    font-size: 12px;
+                    font-weight: 500;
+                }
             </style>
         </head>
         <body>
