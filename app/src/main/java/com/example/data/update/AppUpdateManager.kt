@@ -71,13 +71,8 @@ class AppUpdateManager(private val context: Context) {
 
     companion object {
         private const val TAG = "AppUpdateManager"
-        private const val PREFS_NAME = "kazi_update_prefs"
-        private const val KEY_LAST_CHECK = "last_update_check_millis"
-        private const val COOLDOWN_MILLIS = 6 * 60 * 60 * 1000L // 6 Hours
         private const val UPDATE_NODE = "appUpdate"
     }
-
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
@@ -89,22 +84,73 @@ class AppUpdateManager(private val context: Context) {
     @Volatile
     private var isDownloadCancelled = false
 
+    init {
+        startListeningForUpdates()
+    }
+
     /**
-     * Checks Firebase for available updates.
-     * @param isManual If true, ignores 6-hour cooldown and forces immediate lookup.
+     * Real-time Firebase listener to immediately detect new releases even while the app is running.
+     */
+    fun startListeningForUpdates() {
+        try {
+            val database = FirebaseDatabase.getInstance()
+            database.reference.child(UPDATE_NODE).addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (!snapshot.exists()) return
+                    val remoteVersionCode = snapshot.child("versionCode").getValue(Long::class.java)?.toInt()
+                        ?: snapshot.child("versionCode").getValue(Int::class.java)
+                        ?: 0
+
+                    val remoteVersionName = snapshot.child("versionName").getValue(String::class.java) ?: ""
+                    val apkUrl = snapshot.child("apkUrl").getValue(String::class.java) ?: ""
+                    val forceUpdate = snapshot.child("forceUpdate").getValue(Boolean::class.java) ?: false
+                    val title = snapshot.child("title").getValue(String::class.java) ?: "নতুন আপডেট পাওয়া গেছে"
+                    val message = snapshot.child("message").getValue(String::class.java)
+                        ?: "কাজী এগ্রোটেক-এর নতুন সংস্করণ পাওয়া গেছে।"
+                    val releaseNotes = snapshot.child("releaseNotes").getValue(String::class.java) ?: ""
+                    val fileSize = snapshot.child("fileSize").getValue(Long::class.java) ?: 0L
+                    val sha256 = snapshot.child("sha256").getValue(String::class.java) ?: ""
+                    val releaseDate = snapshot.child("releaseDate").getValue(String::class.java) ?: ""
+
+                    val installedVersionCode = BuildConfig.VERSION_CODE
+                    Log.d(TAG, "Realtime update check: installed=$installedVersionCode, remote=$remoteVersionCode")
+
+                    if (remoteVersionCode > installedVersionCode && apkUrl.isNotBlank()) {
+                        val info = AppUpdateInfo(
+                            versionCode = remoteVersionCode,
+                            versionName = remoteVersionName,
+                            apkUrl = apkUrl,
+                            forceUpdate = forceUpdate,
+                            title = title,
+                            message = message,
+                            releaseNotes = releaseNotes,
+                            fileSize = fileSize,
+                            sha256 = sha256,
+                            releaseDate = releaseDate
+                        )
+                        _availableUpdate.value = info
+                        if (_updateState.value is UpdateState.Idle || _updateState.value is UpdateState.Error || _updateState.value is UpdateState.Checking) {
+                            _updateState.value = UpdateState.Available(info)
+                        }
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w(TAG, "Update listener cancelled: ${error.message}")
+                }
+            })
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to attach real-time update listener: ${e.message}")
+        }
+    }
+
+    /**
+     * Checks Firebase for available updates immediately on demand or on app launch.
      */
     suspend fun checkForUpdates(
         isManual: Boolean = false,
         onResult: ((hasUpdate: Boolean, message: String?) -> Unit)? = null
     ): AppUpdateInfo? = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        val lastCheck = prefs.getLong(KEY_LAST_CHECK, 0L)
-
-        if (!isManual && (now - lastCheck < COOLDOWN_MILLIS)) {
-            Log.d(TAG, "Skipping automatic update check due to 6h cooldown.")
-            return@withContext null
-        }
-
         try {
             _updateState.value = UpdateState.Checking
             val database = FirebaseDatabase.getInstance()
@@ -112,7 +158,6 @@ class AppUpdateManager(private val context: Context) {
 
             if (!snapshot.exists()) {
                 Log.d(TAG, "No update node exists in Firebase Realtime Database.")
-                prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
                 if (isManual) {
                     _updateState.value = UpdateState.UpToDate
                     withContext(Dispatchers.Main) {
@@ -138,8 +183,6 @@ class AppUpdateManager(private val context: Context) {
             val fileSize = snapshot.child("fileSize").getValue(Long::class.java) ?: 0L
             val sha256 = snapshot.child("sha256").getValue(String::class.java) ?: ""
             val releaseDate = snapshot.child("releaseDate").getValue(String::class.java) ?: ""
-
-            prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
 
             val installedVersionCode = BuildConfig.VERSION_CODE
 
@@ -385,3 +428,4 @@ class AppUpdateManager(private val context: Context) {
         _updateState.value = UpdateState.Idle
     }
 }
+

@@ -140,16 +140,16 @@ fun PdfPreviewModalDialog(
                                         action = Intent.ACTION_SEND
                                         putExtra(
                                             Intent.EXTRA_TEXT,
-                                            "কাজী এগ্রোটেক অফিসিয়াল রিপোর্ট\n" +
+                                            "কাজী এগ্রোটেক অফিসিয়াল রিপোর্ট\n" +
                                                     "ফার্ম: ${farmProfile.farmName}\n" +
                                                     "মালিক: ${farmProfile.ownerName}\n" +
                                                     "মোবাইল: ${farmProfile.mobileNumber}\n" +
                                                     "ঠিকানা: ${farmProfile.address}\n\n" +
-                                                    "মোট রেকর্ড: ${if (isDailyReport) dailyReports.size else expenses.size} টি"
+                                                    "মোট রেকর্ড: ${if (isDailyReport) sortedDailyReports.size else sortedExpenses.size} টি"
                                         )
                                         type = "text/plain"
                                     }
-                                    context.startActivity(Intent.createChooser(shareIntent, "রিপোর্ট শেয়ার করুন"))
+                                    context.startActivity(Intent.createChooser(shareIntent, "রিপোর্ট শেয়ার করুন"))
                                 }
                             ) {
                                 Icon(
@@ -170,7 +170,7 @@ fun PdfPreviewModalDialog(
                     }
                 }
 
-                // Printable Document Canvas (White sheet with border matching Image 18 / 20)
+                // Printable Document Canvas
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -254,7 +254,6 @@ fun PdfPreviewModalDialog(
 
                                 Spacer(modifier = Modifier.size(60.dp))
                             }
-
 
                             Spacer(modifier = Modifier.height(10.dp))
                             HorizontalDivider(color = Color(0xFF0D631B), thickness = 2.dp)
@@ -392,21 +391,6 @@ fun DailyReportPdfTable(
     baselineStock: Int = 0
 ) {
     val scrollState = rememberScrollState()
-
-    // Use full history ledger for correct sequential stock (baseline → first record → last record)
-    val stockLedger = remember(allReports, baselineStock) {
-        StockCalculationService.calculateSequentialStockLedger(allReports, baselineStock)
-    }
-    val periodStockSummary = remember(allReports, reports, baselineStock) {
-        if (reports.isEmpty()) null
-        else StockCalculationService.calculateStockForPeriod(
-            allReports,
-            reports.minOfOrNull { it.date },
-            reports.maxOfOrNull { it.date },
-            baselineStock
-        )
-    }
-
     val sortedReports = remember(reports) { reports.sortedBy { it.date } }
 
     Column(
@@ -449,9 +433,9 @@ fun DailyReportPdfTable(
         }
 
         // Grand Total Row
-        val totalProd = reports.sumOf { it.eggProduction }
-        val totalSold = reports.sumOf { it.eggSold }
-        val totalSale = reports.sumOf { it.totalSale }
+        val totalProd = sortedReports.sumOf { it.eggProduction }
+        val totalSold = sortedReports.sumOf { it.eggSold }
+        val totalSale = sortedReports.sumOf { it.totalSale }
 
         Row(
             modifier = Modifier
@@ -520,15 +504,15 @@ fun MonthlyExpensePdfTable(expenses: List<MonthlyExpenseEntity>) {
         }
 
         // Grand Total Row
-        val totalFeed = expenses.sumOf { it.feedCost }
-        val totalMed = expenses.sumOf { it.medicineCost }
-        val totalMarket = expenses.sumOf { it.staffMarket }
-        val totalSalary = expenses.sumOf { it.staffSalary }
-        val totalVehicle = expenses.sumOf { it.vehicleRepair }
-        val totalAssets = expenses.sumOf { it.assets }
-        val totalElec = expenses.sumOf { it.electricityBill }
-        val totalOthers = expenses.sumOf { it.otherExpense }
-        val grandTotal = expenses.sumOf { it.totalExpense }
+        val totalFeed = sortedExpenses.sumOf { it.feedCost }
+        val totalMed = sortedExpenses.sumOf { it.medicineCost }
+        val totalMarket = sortedExpenses.sumOf { it.staffMarket }
+        val totalSalary = sortedExpenses.sumOf { it.staffSalary }
+        val totalVehicle = sortedExpenses.sumOf { it.vehicleRepair }
+        val totalAssets = sortedExpenses.sumOf { it.assets }
+        val totalElec = sortedExpenses.sumOf { it.electricityBill }
+        val totalOthers = sortedExpenses.sumOf { it.otherExpense }
+        val grandTotal = sortedExpenses.sumOf { it.totalExpense }
 
         Row(
             modifier = Modifier
@@ -590,6 +574,7 @@ fun printHtmlDocument(context: Context, docName: String, html: String) {
         SnackbarController.showError("প্রিন্ট সেবা চালু করা যায়নি: ${e.message}")
     }
 }
+
 fun generateHtmlContent(
     title: String,
     farmProfile: FarmProfileEntity,
@@ -633,9 +618,9 @@ fun generateHtmlContent(
         }
 
         // Totals
-        val totalProd = dailyReports.sumOf { it.eggProduction }
-        val totalSold = dailyReports.sumOf { it.eggSold }
-        val totalSale = dailyReports.sumOf { it.totalSale }
+        val totalProd = sortedReports.sumOf { it.eggProduction }
+        val totalSold = sortedReports.sumOf { it.eggSold }
+        val totalSale = sortedReports.sumOf { it.totalSale }
 
         tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
         tableRows.append("<td style='text-align:center;'>সর্বমোট</td><td>-</td><td>-</td>")
@@ -660,15 +645,15 @@ fun generateHtmlContent(
         }
 
         // Totals
-        val totalFeed = expenses.sumOf { it.feedCost }
-        val totalMed = expenses.sumOf { it.medicineCost }
-        val totalMarket = expenses.sumOf { it.staffMarket }
-        val totalSalary = expenses.sumOf { it.staffSalary }
-        val totalVehicle = expenses.sumOf { it.vehicleRepair }
-        val totalAssets = expenses.sumOf { it.assets }
-        val totalElec = expenses.sumOf { it.electricityBill }
-        val totalOthers = expenses.sumOf { it.otherExpense }
-        val grandTotal = expenses.sumOf { it.totalExpense }
+        val totalFeed = sortedExpenses.sumOf { it.feedCost }
+        val totalMed = sortedExpenses.sumOf { it.medicineCost }
+        val totalMarket = sortedExpenses.sumOf { it.staffMarket }
+        val totalSalary = sortedExpenses.sumOf { it.staffSalary }
+        val totalVehicle = sortedExpenses.sumOf { it.vehicleRepair }
+        val totalAssets = sortedExpenses.sumOf { it.assets }
+        val totalElec = sortedExpenses.sumOf { it.electricityBill }
+        val totalOthers = sortedExpenses.sumOf { it.otherExpense }
+        val grandTotal = sortedExpenses.sumOf { it.totalExpense }
         tableRows.append("<tr style='background-color:#E8F5E9; font-weight:bold;'>")
         tableRows.append("<td style='text-align:center;'>সর্বমোট</td>")
         tableRows.append("<td>${BanglaNumberFormatter.formatCurrency(totalFeed)}</td>")
