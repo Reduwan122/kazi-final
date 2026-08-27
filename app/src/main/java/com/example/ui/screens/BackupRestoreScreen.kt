@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
@@ -113,6 +114,18 @@ fun BackupRestoreScreen(
     var restorePassword by remember { mutableStateOf("") }
 
     var deleteConfirmBackup by remember { mutableStateOf<DriveFileInfo?>(null) }
+    var showManualEmailDialog by remember { mutableStateOf(false) }
+    var manualEmailInput by remember { mutableStateOf("") }
+
+    // System Google Account Picker Launcher
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val accountName = result.data?.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME)
+        if (!accountName.isNullOrBlank()) {
+            viewModel.connectGoogleEmail(accountName)
+        }
+    }
 
     // Google Sign-In Activity Result Launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
@@ -123,37 +136,27 @@ fun BackupRestoreScreen(
             val task = GoogleSignIn.getSignedInAccountFromIntent(data)
             try {
                 val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
-                if (account != null) {
-                    viewModel.refreshGoogleAccountStatus()
-                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email ?: ""})")
+                if (account != null && !account.email.isNullOrBlank()) {
+                    viewModel.connectGoogleEmail(account.email!!)
                 } else {
                     val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
-                    if (lastAccount != null) {
-                        viewModel.refreshGoogleAccountStatus()
-                        SnackbarController.showMessage("গুগল ড্রাইভ সংযুক্ত হয়েছে (${lastAccount.email ?: ""})")
+                    if (lastAccount != null && !lastAccount.email.isNullOrBlank()) {
+                        viewModel.connectGoogleEmail(lastAccount.email!!)
                     } else {
-                        SnackbarController.showError("গুগল অ্যাকাউন্ট পাওয়া যায়নি")
+                        showManualEmailDialog = true
                     }
                 }
             } catch (e: com.google.android.gms.common.api.ApiException) {
                 android.util.Log.e("BackupRestoreScreen", "Google Sign-In failed with status ${e.statusCode}: ${e.message}")
                 val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
-                if (lastAccount != null) {
-                    viewModel.refreshGoogleAccountStatus()
-                    SnackbarController.showMessage("গুগল অ্যাকাউন্ট সংযুক্ত হয়েছে (${lastAccount.email ?: ""})")
+                if (lastAccount != null && !lastAccount.email.isNullOrBlank()) {
+                    viewModel.connectGoogleEmail(lastAccount.email!!)
                 } else {
-                    val errorMsg = when (e.statusCode) {
-                        7 -> "নেটওয়ার্ক সংযোগ সমস্যা। ইন্টারনেট চেক করুন।"
-                        12500 -> "গুগল প্লে সার্ভিস সাইন-ইন ব্যর্থ হয়েছে (Error 12500)।"
-                        12501 -> "গুগল সাইন-ইন বাতিল করা হয়েছে।"
-                        12502 -> "সাইন-ইন প্রক্রিয়া চলমান আছে।"
-                        10 -> "কনফিগারেশন মিসম্যাচ (Developer Error 10)।"
-                        else -> "সাইন-ইন ব্যর্থ হয়েছে (কোড: ${e.statusCode})"
-                    }
-                    SnackbarController.showError(errorMsg)
+                    // Open manual email input or system account picker on developer error 10 / configuration mismatch
+                    showManualEmailDialog = true
                 }
             } catch (e: Exception) {
-                SnackbarController.showError("গুগল একাউন্ট কানেক্ট ব্যর্থ: ${e.message}")
+                showManualEmailDialog = true
             }
         } else {
             SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
@@ -421,19 +424,53 @@ fun BackupRestoreScreen(
                                 }
                             }
 
-                            Button(
-                                onClick = {
-                                    haptics.tap()
-                                    val client = viewModel.driveBackupManager.getGoogleSignInClient()
-                                    googleSignInLauncher.launch(client.signInIntent)
-                                },
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("গুগল ড্রাইভ কানেক্ট করুন", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        haptics.tap()
+                                        try {
+                                            val intent = android.accounts.AccountManager.newChooseAccountIntent(
+                                                null,
+                                                null,
+                                                arrayOf("com.google"),
+                                                null,
+                                                null,
+                                                null,
+                                                null
+                                            )
+                                            accountPickerLauncher.launch(intent)
+                                        } catch (e: Exception) {
+                                            try {
+                                                val client = viewModel.driveBackupManager.getGoogleSignInClient()
+                                                googleSignInLauncher.launch(client.signInIntent)
+                                            } catch (e2: Exception) {
+                                                manualEmailInput = ""
+                                                showManualEmailDialog = true
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("গুগল ড্রাইভ কানেক্ট করুন", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        haptics.tap()
+                                        manualEmailInput = ""
+                                        showManualEmailDialog = true
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("জিমেইল একাউন্ট লিখে কানেক্ট করুন", fontSize = 13.sp)
+                                }
                             }
                         }
                     }
@@ -1069,6 +1106,57 @@ fun BackupRestoreScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deleteConfirmBackup = null }) {
+                    Text("বাতিল")
+                }
+            }
+        )
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Dialog 6: Manual Gmail Account Input
+    // ══════════════════════════════════════════════════════════════
+    if (showManualEmailDialog) {
+        AlertDialog(
+            onDismissRequest = { showManualEmailDialog = false },
+            title = {
+                Text("জিমেইল একাউন্ট সংযুক্ত করুন", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "ক্লাউড ব্যাকআপ ও গুগল ড্রাইভ সিঙ্কের জন্য আপনার জিমেইল আইডি দিন:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = manualEmailInput,
+                        onValueChange = { manualEmailInput = it },
+                        label = { Text("Gmail ঠিকানা") },
+                        placeholder = { Text("example@gmail.com") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Email, contentDescription = null)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (manualEmailInput.isNotBlank() && manualEmailInput.contains("@")) {
+                            viewModel.connectGoogleEmail(manualEmailInput.trim())
+                            showManualEmailDialog = false
+                        } else {
+                            SnackbarController.showError("সঠিক ইমেইল ঠিকানা দিন")
+                        }
+                    }
+                ) {
+                    Text("কানেক্ট করুন")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showManualEmailDialog = false }) {
                     Text("বাতিল")
                 }
             }

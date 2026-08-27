@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit
 class DriveBackupManager(private val context: Context) {
     private val TAG = "DriveBackupManager"
     private val PREFS_NAME = "kazi_agro_drive_prefs"
+    private val PREF_KEY_CONNECTED_EMAIL = "key_connected_google_email"
     private val PREF_KEY_DRIVE_FOLDER_ID = "key_drive_folder_id"
     private val PREF_KEY_LAST_BACKUP_TIMESTAMP = "key_last_backup_timestamp"
     private val PREF_KEY_LAST_BACKUP_NAME = "key_last_backup_name"
@@ -79,7 +80,17 @@ class DriveBackupManager(private val context: Context) {
         }
     }
 
-    fun isConnected(): Boolean = getConnectedAccount() != null
+    fun getConnectedAccountEmail(): String? {
+        val savedEmail = prefs.getString(PREF_KEY_CONNECTED_EMAIL, null)
+        if (!savedEmail.isNullOrBlank()) return savedEmail
+        return getConnectedAccount()?.email
+    }
+
+    fun saveConnectedEmail(email: String) {
+        prefs.edit().putString(PREF_KEY_CONNECTED_EMAIL, email.trim()).apply()
+    }
+
+    fun isConnected(): Boolean = !getConnectedAccountEmail().isNullOrBlank()
 
     /**
      * Checks internet connectivity
@@ -95,9 +106,9 @@ class DriveBackupManager(private val context: Context) {
      * Gets valid OAuth Access Token for Google Drive API
      */
     suspend fun getAccessToken(): String? = withContext(Dispatchers.IO) {
-        val account = getConnectedAccount() ?: return@withContext null
+        val email = getConnectedAccountEmail() ?: return@withContext null
         try {
-            val androidAccount = account.account ?: return@withContext null
+            val androidAccount = android.accounts.Account(email, "com.google")
             GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$DRIVE_SCOPE")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get Google OAuth token: ${e.message}", e)
@@ -111,7 +122,12 @@ class DriveBackupManager(private val context: Context) {
     suspend fun disconnect() = withContext(Dispatchers.IO) {
         try {
             getGoogleSignInClient().signOut()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error signOut: ${e.message}")
+        }
+        try {
             prefs.edit()
+                .remove(PREF_KEY_CONNECTED_EMAIL)
                 .remove(PREF_KEY_DRIVE_FOLDER_ID)
                 .apply()
         } catch (e: Exception) {

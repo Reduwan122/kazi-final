@@ -1134,29 +1134,31 @@ fun generateHtmlContent(
 
         pagesHtml.append("""
             <div class="page-container">
-                <div class="header">
-                    <div class="header-logo">$logoHtml</div>
-                    <div class="header-text">
-                        <h1 class="title">${farmProfile.farmName}</h1>
-                        <div class="subtitle">লেয়ার পোল্ট্রি ফার্ম</div>
-                        <div class="subtitle">প্রোঃ ${farmProfile.ownerName} | মোবাইলঃ ${farmProfile.mobileNumber}</div>
-                        <div class="subtitle">ঠিকানাঃ ${farmProfile.address}</div>
+                <div class="page-body">
+                    <div class="header">
+                        <div class="header-logo">$logoHtml</div>
+                        <div class="header-text">
+                            <h1 class="title">${farmProfile.farmName}</h1>
+                            <div class="subtitle">লেয়ার পোল্ট্রি ফার্ম</div>
+                            <div class="subtitle">প্রোঃ ${farmProfile.ownerName} | মোবাইলঃ ${farmProfile.mobileNumber}</div>
+                            <div class="subtitle">ঠিকানাঃ ${farmProfile.address}</div>
+                        </div>
+                        <div class="header-spacer"></div>
                     </div>
-                    <div class="header-spacer"></div>
+                    <div class="meta">
+                        <strong>$pageTitle</strong>
+                        <span>তারিখ: $currentDateStr</span>
+                    </div>
+                    <table class="$tableClass">
+                        <thead>
+                            <tr>$tableHeaders</tr>
+                        </thead>
+                        <tbody>
+                            $tableRows
+                        </tbody>
+                    </table>
                 </div>
-                <div class="meta">
-                    <strong>$pageTitle</strong>
-                    <span>তারিখ: $currentDateStr</span>
-                </div>
-                <table class="$tableClass">
-                    <thead>
-                        <tr>$tableHeaders</tr>
-                    </thead>
-                    <tbody>
-                        $tableRows
-                    </tbody>
-                </table>
-                <div class="footer-signatures $sigClass">
+                <div class="footer-signatures">
                     <div class="sig-line">প্রস্তুতকারক</div>
                     <div class="sig-line">অনুমোদনকারী</div>
                 </div>
@@ -1173,7 +1175,7 @@ fun generateHtmlContent(
             <style>
                 @page {
                     size: A4 portrait;
-                    margin: 14mm 10mm 10mm 10mm;
+                    margin: 12mm 12mm 14mm 12mm;
                 }
 
                 *, *:before, *:after {
@@ -1193,15 +1195,24 @@ fun generateHtmlContent(
 
                 .page-container {
                     width: 100%;
+                    min-height: 268mm;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
                     page-break-after: always;
                     break-after: page;
                     box-sizing: border-box;
-                    padding: 0;
+                    padding-bottom: 2mm;
                 }
 
                 .page-container:last-child {
                     page-break-after: avoid;
                     break-after: auto;
+                }
+
+                .page-body {
+                    flex: 1 0 auto;
+                    width: 100%;
                 }
 
                 /* ─── অফিশিয়াল প্যাড / লেটারহেড ─── */
@@ -1349,29 +1360,24 @@ fun generateHtmlContent(
                     padding: 5.5px 7px;
                 }
 
-                /* ─── সিগনেচার সেকশন ─── */
+                /* ─── সিগনেচার সেকশন (পৃষ্ঠার শেষ প্রান্তে ও প্রফেশনাল মার্জিন) ─── */
                 .footer-signatures {
                     display: flex;
                     justify-content: space-between;
-                    padding: 0 25px;
+                    padding: 0 30px;
+                    margin-top: 30px;
+                    margin-bottom: 4mm;
                     page-break-inside: avoid;
                 }
 
-                .footer-signatures.sig-standard {
-                    margin-top: 55px;
-                }
-
-                .footer-signatures.sig-spacious {
-                    margin-top: 85px;
-                }
-
                 .sig-line {
-                    border-top: 1px solid #444444;
-                    width: 125px;
+                    border-top: 1.5px solid #333333;
+                    width: 130px;
                     text-align: center;
-                    padding-top: 5px;
-                    font-size: 11.5px;
-                    font-weight: 500;
+                    padding-top: 6px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: #222222;
                 }
             </style>
         </head>

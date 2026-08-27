@@ -761,13 +761,19 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     // ══════════════════════════════════════════════════════════════════════
 
     fun refreshGoogleAccountStatus() {
-        _googleAccountEmail.value = driveBackupManager.getConnectedAccount()?.email
+        _googleAccountEmail.value = driveBackupManager.getConnectedAccountEmail()
         _lastBackupTimestamp.value = driveBackupManager.getLastBackupTimestamp()
         _isAutoBackupEnabled.value = driveBackupManager.isAutoBackupEnabled()
         _autoBackupFrequency.value = driveBackupManager.getAutoBackupFrequency()
         if (driveBackupManager.isConnected()) {
             fetchDriveBackupsList()
         }
+    }
+
+    fun connectGoogleEmail(email: String) {
+        driveBackupManager.saveConnectedEmail(email)
+        refreshGoogleAccountStatus()
+        SnackbarController.showMessage("গুগল অ্যাকাউন্ট সফলভাবে সংযুক্ত হয়েছে ($email)")
     }
 
     fun disconnectGoogleAccount(onDone: () -> Unit = {}) {
