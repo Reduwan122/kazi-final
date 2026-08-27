@@ -888,7 +888,7 @@ fun generateHtmlContent(
     val currentDateStr = BanglaNumberFormatter.toBanglaDigits(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date()))
 
     val logoHtml = if (farmProfile.logoUri.isNotBlank()) {
-        """<img src="${farmProfile.logoUri}" style="max-height: 48px; max-width: 65px; object-fit: contain; border-radius: 4px;" alt="Farm Logo" />"""
+        """<img src="${farmProfile.logoUri}" style="max-height: 65px; max-width: 85px; object-fit: contain; border-radius: 6px;" alt="Farm Logo" />"""
     } else if (farmProfile.logoEmoji.isNotBlank() && farmProfile.logoEmoji != "🐔") {
         """<div class="emoji-logo">${farmProfile.logoEmoji}</div>"""
     } else {
@@ -912,11 +912,12 @@ fun generateHtmlContent(
             continue
         }
 
-        val monthLabel = if (month.isNotBlank()) BanglaNumberFormatter.formatMonthYear(month) else ""
+        val monthLabel = if (month.isNotBlank()) BanglaNumberFormatter.formatYearMonth(month) else ""
         val pageTitle = if (monthLabel.isNotBlank() && !title.contains(monthLabel)) "$title - $monthLabel" else title
 
         val tableHeaders: String
         val tableRows = StringBuilder()
+        var rowCount = 0
 
         when (reportCategory) {
             "MONTHLY" -> {
@@ -924,6 +925,7 @@ fun generateHtmlContent(
                 val allDates = (monthReports.map { it.date } + monthExpenses.map { it.date }).toSortedSet().toList()
                 val reportsByDate = monthReports.associateBy { it.date }
                 val expensesByDate = monthExpenses.associateBy { it.date }
+                rowCount = allDates.size
 
                 var sumProd = 0
                 var sumSold = 0
@@ -968,6 +970,7 @@ fun generateHtmlContent(
             "SALES" -> {
                 tableHeaders = "<th>তারিখ</th><th>বিক্রির ডিম (টি)</th><th>দর/টি (৳)</th><th>দর/১০০টি (৳)</th><th>মোট বিক্রয় মূল্য (৳)</th><th>মন্তব্য</th>"
                 val salesReports = monthReports.filter { it.eggSold > 0 || it.totalSale > 0.0 }
+                rowCount = salesReports.size
                 for (r in salesReports) {
                     val pricePerHundred = r.eggPrice * 100
                     val remarkText = if (r.remarks.isNotBlank()) r.remarks else "নগদ বিক্রয়"
@@ -993,6 +996,7 @@ fun generateHtmlContent(
 
             "PRODUCTION" -> {
                 tableHeaders = "<th>তারিখ</th><th>মোট মুরগি</th><th>মৃত মুরগি</th><th>মৃত্যুর হার %</th><th>ডিম উৎপাদন</th><th>লেইং হার %</th><th>মন্তব্য</th>"
+                rowCount = monthReports.size
                 for (r in monthReports) {
                     val mortalityRate = if (r.currentBirds > 0) (r.deadBirds.toDouble() / r.currentBirds * 100) else 0.0
                     val layingRate = if (r.currentBirds > 0) (r.eggProduction.toDouble() / r.currentBirds * 100) else 0.0
@@ -1022,6 +1026,7 @@ fun generateHtmlContent(
 
             "EXPENSE" -> {
                 tableHeaders = "<th>তারিখ</th><th>খাদ্য (৳)</th><th>মেডিসিন (৳)</th><th>বাজার (৳)</th><th>বেতন (৳)</th><th>মেরামত (৳)</th><th>সম্পদ (৳)</th><th>বিদ্যুৎ (৳)</th><th>অন্যান্য (৳)</th><th>মোট ব্যয় (৳)</th>"
+                rowCount = monthExpenses.size
                 for (e in monthExpenses) {
                     tableRows.append("<tr>")
                     tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(e.date)}</td>")
@@ -1063,6 +1068,7 @@ fun generateHtmlContent(
                 val allDates = (monthReports.map { it.date } + monthExpenses.map { it.date }).toSortedSet().toList()
                 val reportsByDate = monthReports.associateBy { it.date }
                 val expensesByDate = monthExpenses.associateBy { it.date }
+                rowCount = allDates.size
 
                 var totalSale = 0.0
                 var totalExpense = 0.0
@@ -1099,6 +1105,7 @@ fun generateHtmlContent(
 
             else -> { // DAILY
                 tableHeaders = "<th>তারিখ</th><th>মুরগি</th><th>মৃত</th><th>উৎপাদন</th><th>বিক্রয়</th><th>দর (৳)</th><th>মোট বিক্রয় (৳)</th>"
+                rowCount = monthReports.size
                 for (r in monthReports) {
                     tableRows.append("<tr>")
                     tableRows.append("<td class='text-center'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
@@ -1122,6 +1129,9 @@ fun generateHtmlContent(
             }
         }
 
+        val tableClass = if (rowCount <= 12) "table-spacious" else "table-standard"
+        val sigClass = if (rowCount <= 12) "sig-spacious" else "sig-standard"
+
         pagesHtml.append("""
             <div class="page-container">
                 <div class="header">
@@ -1138,7 +1148,7 @@ fun generateHtmlContent(
                     <strong>$pageTitle</strong>
                     <span>তারিখ: $currentDateStr</span>
                 </div>
-                <table>
+                <table class="$tableClass">
                     <thead>
                         <tr>$tableHeaders</tr>
                     </thead>
@@ -1146,7 +1156,7 @@ fun generateHtmlContent(
                         $tableRows
                     </tbody>
                 </table>
-                <div class="footer-signatures">
+                <div class="footer-signatures $sigClass">
                     <div class="sig-line">প্রস্তুতকারক</div>
                     <div class="sig-line">অনুমোদনকারী</div>
                 </div>
@@ -1163,7 +1173,7 @@ fun generateHtmlContent(
             <style>
                 @page {
                     size: A4 portrait;
-                    margin: 6mm 8mm 6mm 8mm;
+                    margin: 8mm 10mm 8mm 10mm;
                 }
 
                 *, *:before, *:after {
@@ -1176,7 +1186,7 @@ fun generateHtmlContent(
                     padding: 0;
                     color: #111111;
                     background-color: #ffffff;
-                    font-size: 11px;
+                    font-size: 12px;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
@@ -1199,25 +1209,25 @@ fun generateHtmlContent(
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    border-bottom: 2px solid #0D631B;
-                    padding-bottom: 4px;
-                    margin-bottom: 6px;
+                    border-bottom: 2.5px solid #0D631B;
+                    padding-bottom: 6px;
+                    margin-bottom: 10px;
                 }
 
                 .header-logo {
-                    flex: 0 0 65px;
+                    flex: 0 0 85px;
                     text-align: left;
                 }
 
                 .header-logo img {
-                    max-height: 48px;
-                    max-width: 65px;
+                    max-height: 65px;
+                    max-width: 85px;
                     object-fit: contain;
-                    border-radius: 4px;
+                    border-radius: 6px;
                 }
 
                 .header-logo .emoji-logo {
-                    font-size: 32px;
+                    font-size: 38px;
                     line-height: 1;
                 }
 
@@ -1227,24 +1237,24 @@ fun generateHtmlContent(
                 }
 
                 .header-text .title {
-                    font-size: 18px;
+                    font-size: 20px;
                     font-weight: bold;
                     color: #0D631B;
                     margin: 0;
-                    line-height: 1.1;
-                    letter-spacing: 0.3px;
+                    line-height: 1.2;
+                    letter-spacing: 0.4px;
                 }
 
                 .header-text .subtitle {
-                    font-size: 10.5px;
+                    font-size: 11.5px;
                     color: #222222;
-                    margin: 1px 0;
+                    margin: 2px 0;
                     font-weight: 500;
-                    line-height: 1.2;
+                    line-height: 1.3;
                 }
 
                 .header-spacer {
-                    flex: 0 0 65px;
+                    flex: 0 0 85px;
                 }
 
                 /* ─── রিপোর্ট মেটাডাটা ও তারিখ ─── */
@@ -1252,19 +1262,19 @@ fun generateHtmlContent(
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 6px;
-                    font-size: 11.5px;
+                    margin-bottom: 8px;
+                    font-size: 12.5px;
                     font-weight: 600;
                 }
 
                 .meta strong {
-                    font-size: 12px;
+                    font-size: 13px;
                     color: #111111;
                 }
 
                 .meta span {
                     color: #444444;
-                    font-size: 11px;
+                    font-size: 12px;
                 }
 
                 /* ─── ডেটা টেবিল (আধুনিক ডিজাইন) ─── */
@@ -1272,22 +1282,31 @@ fun generateHtmlContent(
                     width: 100%;
                     border-collapse: separate;
                     border-spacing: 0;
-                    margin-top: 4px;
-                    font-size: 11px;
+                    margin-top: 6px;
+                    font-size: 11.5px;
                     border-radius: 6px;
                     overflow: hidden;
-                    border: 1px solid #D8D8D8;
-                    box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+                    border: 1px solid #D0D0D0;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
                     page-break-inside: auto;
                 }
 
                 th, td {
-                    padding: 3.5px 6px;
                     text-align: right;
-                    line-height: 1.25;
                     border-bottom: 1px solid #E0E0E0;
                     border-right: 1px solid #E0E0E0;
                     font-weight: 500;
+                }
+
+                table.table-standard th, table.table-standard td {
+                    padding: 4.8px 7px;
+                    line-height: 1.28;
+                }
+
+                table.table-spacious th, table.table-spacious td {
+                    padding: 7px 9px;
+                    line-height: 1.35;
+                    font-size: 12px;
                 }
 
                 th:last-child, td:last-child {
@@ -1303,9 +1322,9 @@ fun generateHtmlContent(
                     color: #FFFFFF !important;
                     font-weight: 600;
                     text-align: center;
-                    font-size: 10.5px;
+                    font-size: 11.5px;
                     letter-spacing: 0.2px;
-                    padding: 5px 6px;
+                    padding: 6px 7px;
                 }
 
                 td.text-center {
@@ -1325,25 +1344,32 @@ fun generateHtmlContent(
                     color: #0B4D16;
                     border-top: 2px solid #0D631B;
                     font-weight: 700;
-                    font-size: 11.5px;
-                    padding: 4.5px 6px;
+                    font-size: 12px;
+                    padding: 5.5px 7px;
                 }
 
                 /* ─── সিগনেচার সেকশন ─── */
                 .footer-signatures {
                     display: flex;
                     justify-content: space-between;
-                    margin-top: 22px;
-                    padding: 0 20px;
+                    padding: 0 25px;
                     page-break-inside: avoid;
+                }
+
+                .footer-signatures.sig-standard {
+                    margin-top: 35px;
+                }
+
+                .footer-signatures.sig-spacious {
+                    margin-top: 55px;
                 }
 
                 .sig-line {
                     border-top: 1px solid #444444;
-                    width: 110px;
+                    width: 120px;
                     text-align: center;
-                    padding-top: 3px;
-                    font-size: 10.5px;
+                    padding-top: 4px;
+                    font-size: 11.5px;
                     font-weight: 500;
                 }
             </style>

@@ -62,6 +62,7 @@ class DriveBackupManager(private val context: Context) {
     fun getGoogleSignInClient(): GoogleSignInClient {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
+            .requestProfile()
             .requestScopes(Scope(DRIVE_SCOPE))
             .build()
         return GoogleSignIn.getClient(context, gso)
@@ -72,7 +73,7 @@ class DriveBackupManager(private val context: Context) {
      */
     fun getConnectedAccount(): GoogleSignInAccount? {
         val account = GoogleSignIn.getLastSignedInAccount(context)
-        return if (account != null && GoogleSignIn.hasPermissions(account, Scope(DRIVE_SCOPE))) {
+        return if (account != null && !account.email.isNullOrBlank()) {
             account
         } else {
             null

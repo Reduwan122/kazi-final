@@ -118,13 +118,39 @@ fun BackupRestoreScreen(
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        val data = result.data
+        if (data != null) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
             try {
-                val account = task.result
+                val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
                 if (account != null) {
                     viewModel.refreshGoogleAccountStatus()
-                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email})")
+                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email ?: ""})")
+                } else {
+                    val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
+                    if (lastAccount != null) {
+                        viewModel.refreshGoogleAccountStatus()
+                        SnackbarController.showMessage("গুগল ড্রাইভ সংযুক্ত হয়েছে (${lastAccount.email ?: ""})")
+                    } else {
+                        SnackbarController.showError("গুগল অ্যাকাউন্ট পাওয়া যায়নি")
+                    }
+                }
+            } catch (e: com.google.android.gms.common.api.ApiException) {
+                android.util.Log.e("BackupRestoreScreen", "Google Sign-In failed with status ${e.statusCode}: ${e.message}")
+                val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
+                if (lastAccount != null) {
+                    viewModel.refreshGoogleAccountStatus()
+                    SnackbarController.showMessage("গুগল অ্যাকাউন্ট সংযুক্ত হয়েছে (${lastAccount.email ?: ""})")
+                } else {
+                    val errorMsg = when (e.statusCode) {
+                        7 -> "নেটওয়ার্ক সংযোগ সমস্যা। ইন্টারনেট চেক করুন।"
+                        12500 -> "গুগল প্লে সার্ভিস সাইন-ইন ব্যর্থ হয়েছে (Error 12500)।"
+                        12501 -> "গুগল সাইন-ইন বাতিল করা হয়েছে।"
+                        12502 -> "সাইন-ইন প্রক্রিয়া চলমান আছে।"
+                        10 -> "কনফিগারেশন মিসম্যাচ (Developer Error 10)।"
+                        else -> "সাইন-ইন ব্যর্থ হয়েছে (কোড: ${e.statusCode})"
+                    }
+                    SnackbarController.showError(errorMsg)
                 }
             } catch (e: Exception) {
                 SnackbarController.showError("গুগল একাউন্ট কানেক্ট ব্যর্থ: ${e.message}")

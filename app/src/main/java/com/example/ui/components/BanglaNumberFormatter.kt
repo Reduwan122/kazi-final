@@ -125,6 +125,4 @@ object BanglaNumberFormatter {
             toBanglaDigits(yearMonth)
         }
     }
-
-    fun formatMonthYear(yearMonth: String): String = formatYearMonth(yearMonth)
 }
