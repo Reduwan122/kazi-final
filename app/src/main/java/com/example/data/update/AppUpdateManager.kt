@@ -2,7 +2,6 @@ package com.example.data.update
 
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -58,14 +57,6 @@ sealed class UpdateState {
 
 /**
  * Production-grade In-App Update Engine for Kazi Agrotech.
- *
- * Responsibilities:
- * 1. Queries Firebase Realtime Database path "appUpdate".
- * 2. Compares remote versionCode against installed BuildConfig.VERSION_CODE.
- * 3. Enforces 6-hour cooldown for automatic checks (bypassed on manual check).
- * 4. Downloads APK directly from GitHub Releases via streaming HTTPS.
- * 5. Computes and validates SHA-256 hash before installation.
- * 6. Invokes Android native Package Installer via FileProvider.
  */
 class AppUpdateManager(private val context: Context) {
 
@@ -185,7 +176,6 @@ class AppUpdateManager(private val context: Context) {
             val releaseDate = snapshot.child("releaseDate").getValue(String::class.java) ?: ""
 
             val installedVersionCode = BuildConfig.VERSION_CODE
-
             Log.d(TAG, "Installed VersionCode: $installedVersionCode, Remote VersionCode: $remoteVersionCode")
 
             if (remoteVersionCode > installedVersionCode && apkUrl.isNotBlank()) {
@@ -239,7 +229,6 @@ class AppUpdateManager(private val context: Context) {
         val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
         val targetFile = File(updatesDir, "kazi-agrotech-${info.versionName}.apk")
 
-        // If file already exists and valid hash, reuse it
         if (targetFile.exists() && targetFile.length() > 0 && info.sha256.isNotBlank()) {
             val existingHash = calculateFileSha256(targetFile)
             if (existingHash.equals(info.sha256.trim(), ignoreCase = true)) {
@@ -257,7 +246,6 @@ class AppUpdateManager(private val context: Context) {
             var redirectCount = 0
             val maxRedirects = 6
 
-            // Follow HTTP redirects safely (GitHub releases redirects to AWS S3/Azure blobs)
             while (redirectCount < maxRedirects) {
                 val url = URL(urlString)
                 connection = (url.openConnection() as HttpURLConnection).apply {
@@ -292,31 +280,29 @@ class AppUpdateManager(private val context: Context) {
             val totalBytes = if (finalConnection.contentLengthLong > 0) finalConnection.contentLengthLong else info.fileSize
             val digest = MessageDigest.getInstance("SHA-256")
 
-            BufferedInputStream(finalConnection.inputStream, 16384).use { input ->
+            finalConnection.inputStream.use { input ->
                 FileOutputStream(targetFile).use { output ->
-                    val buffer = ByteArray(16384)
+                    val buffer = ByteArray(32768)
                     var bytesRead: Int
                     var totalDownloaded = 0L
+                    var lastProgressEmit = System.currentTimeMillis()
 
                     while (input.read(buffer).also { bytesRead = it } != -1) {
                         if (isDownloadCancelled) {
-                            output.flush()
                             targetFile.delete()
                             _updateState.value = UpdateState.Idle
-                            return@withContext Result.failure(Exception("ডাউনলোড বাতিল করা হয়েছে"))
+                            return@withContext Result.failure(Exception("ডাউনলোড বাতিল করা হয়েছে"))
                         }
-
                         output.write(buffer, 0, bytesRead)
                         digest.update(buffer, 0, bytesRead)
                         totalDownloaded += bytesRead
 
-                        val progress = if (totalBytes > 0) {
-                            (totalDownloaded.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
-                        } else {
-                            0f
+                        val now = System.currentTimeMillis()
+                        if (now - lastProgressEmit > 100 || totalDownloaded == totalBytes) {
+                            val progress = if (totalBytes > 0) (totalDownloaded.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
+                            _updateState.value = UpdateState.Downloading(progress, totalDownloaded, totalBytes)
+                            lastProgressEmit = now
                         }
-
-                        _updateState.value = UpdateState.Downloading(progress, totalDownloaded, totalBytes)
                     }
                     output.flush()
                 }
@@ -324,22 +310,25 @@ class AppUpdateManager(private val context: Context) {
 
             activeDownloadConnection = null
 
-            // Verify SHA-256 Checksum
-            val computedHash = digest.digest().joinToString("") { "%02x".format(it) }
-            Log.d(TAG, "Computed SHA-256: $computedHash, Expected SHA-256: ${info.sha256}")
+            // Validate SHA-256
+            if (info.sha256.isNotBlank()) {
+                val computedHash = digest.digest().joinToString("") { "%02x".format(it) }
+                val expectedHash = info.sha256.trim().lowercase()
 
-            if (info.sha256.isNotBlank() && !computedHash.equals(info.sha256.trim(), ignoreCase = true)) {
-                targetFile.delete()
-                val errorMsg = "আপডেট ফাইলটি সঠিক নয়। অনুগ্রহ করে আবার চেষ্টা করুন।"
-                _updateState.value = UpdateState.Error(errorMsg)
-                return@withContext Result.failure(Exception(errorMsg))
+                Log.d(TAG, "Computed SHA-256: $computedHash")
+                Log.d(TAG, "Expected SHA-256: $expectedHash")
+
+                if (!computedHash.equals(expectedHash, ignoreCase = true)) {
+                    targetFile.delete()
+                    val errorMsg = "ফাইল ভেরিফিকেশন ব্যর্থ (SHA-256 মিসম্যাচ)। দয়া করে পুনরায় চেষ্টা করুন।"
+                    _updateState.value = UpdateState.Error(errorMsg)
+                    return@withContext Result.failure(Exception(errorMsg))
+                }
             }
 
             _updateState.value = UpdateState.Downloaded(targetFile, info)
             Result.success(targetFile)
-
         } catch (e: Exception) {
-            targetFile.delete()
             activeDownloadConnection = null
             Log.e(TAG, "APK Download failed: ${e.message}", e)
             val errorMsg = "ডাউনলোড ব্যর্থ: ${e.localizedMessage ?: "অজ্ঞাত সমস্যা"}"
@@ -355,7 +344,9 @@ class AppUpdateManager(private val context: Context) {
         isDownloadCancelled = true
         try {
             activeDownloadConnection?.disconnect()
-        } catch (ignored: Exception) {}
+        } catch (ignored: Exception) {
+            // ignore
+        }
         _updateState.value = UpdateState.Idle
     }
 
@@ -368,7 +359,6 @@ class AppUpdateManager(private val context: Context) {
                 return Result.failure(Exception("ইনস্টলেশন ফাইল পাওয়া যায়নি"))
             }
 
-            // Android 8.0+ Unknown App Sources Permission Check
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!context.packageManager.canRequestPackageInstalls()) {
                     val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
@@ -428,4 +418,3 @@ class AppUpdateManager(private val context: Context) {
         _updateState.value = UpdateState.Idle
     }
 }
-

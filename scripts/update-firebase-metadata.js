@@ -163,3 +163,4 @@ main().catch((err) => {
   console.error('❌ Error updating Firebase:', err);
   process.exit(1);
 });
+

@@ -285,3 +285,4 @@ jobs:
           4. User is presented with the update dialog.
           5. APK downloads from GitHub Releases, validates SHA-256, and installs smoothly.
           EOF
+

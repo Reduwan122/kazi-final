@@ -453,17 +453,22 @@ fun ReportsScreen(
 
     if (showPdfPreviewModal) {
         val title = when (selectedCategory) {
-            ReportCategory.EXPENSE -> "মাসিক ব্যয় রেজিস্টার ($selectedMonthFilter)"
-            else -> "দৈনিক প্রতিবেদন ($selectedMonthFilter)"
+            ReportCategory.DAILY -> "দৈনিক খামার প্রতিবেদন ($selectedMonthFilter)"
+            ReportCategory.MONTHLY -> "মাসিক সামগ্রিক প্রতিবেদন ($selectedMonthFilter)"
+            ReportCategory.SALES -> "ডিম বিক্রয় প্রতিবেদন ($selectedMonthFilter)"
+            ReportCategory.PRODUCTION -> "ডিম উৎপাদন ও ফ্লক স্বাস্থ্য প্রতিবেদন ($selectedMonthFilter)"
+            ReportCategory.EXPENSE -> "খামার ব্যয় রেজিস্টার ($selectedMonthFilter)"
+            ReportCategory.PROFIT_LOSS -> "আর্থিক লাভ-ক্ষতি বিবরণী ($selectedMonthFilter)"
         }
 
         PdfPreviewModalDialog(
             title = title,
             farmProfile = farmProfile,
-            dailyReports = if (selectedCategory == ReportCategory.EXPENSE) emptyList() else filteredDaily,
+            dailyReports = filteredDaily,
             allReports = dailyReports,
             baselineStock = farmProfile.initialOpeningStock,
-            expenses = if (selectedCategory == ReportCategory.EXPENSE) filteredExpenses else emptyList(),
+            expenses = filteredExpenses,
+            reportCategory = selectedCategory.name,
             onDismiss = { showPdfPreviewModal = false }
         )
     }
