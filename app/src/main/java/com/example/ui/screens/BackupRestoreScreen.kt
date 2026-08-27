@@ -114,49 +114,21 @@ fun BackupRestoreScreen(
     var restorePassword by remember { mutableStateOf("") }
 
     var deleteConfirmBackup by remember { mutableStateOf<DriveFileInfo?>(null) }
-    var showManualEmailDialog by remember { mutableStateOf(false) }
-    var manualEmailInput by remember { mutableStateOf("") }
-
-    // System Google Account Picker Launcher
-    val accountPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val accountName = result.data?.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME)
-        if (!accountName.isNullOrBlank()) {
-            viewModel.connectGoogleEmail(accountName)
-        }
-    }
 
     // Google Sign-In Activity Result Launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val data = result.data
-        if (data != null) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
-                val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
-                if (account != null && !account.email.isNullOrBlank()) {
-                    viewModel.connectGoogleEmail(account.email!!)
-                } else {
-                    val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
-                    if (lastAccount != null && !lastAccount.email.isNullOrBlank()) {
-                        viewModel.connectGoogleEmail(lastAccount.email!!)
-                    } else {
-                        showManualEmailDialog = true
-                    }
-                }
-            } catch (e: com.google.android.gms.common.api.ApiException) {
-                android.util.Log.e("BackupRestoreScreen", "Google Sign-In failed with status ${e.statusCode}: ${e.message}")
-                val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
-                if (lastAccount != null && !lastAccount.email.isNullOrBlank()) {
-                    viewModel.connectGoogleEmail(lastAccount.email!!)
-                } else {
-                    // Open manual email input or system account picker on developer error 10 / configuration mismatch
-                    showManualEmailDialog = true
+                val account = task.result
+                if (account != null) {
+                    viewModel.refreshGoogleAccountStatus()
+                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email})")
                 }
             } catch (e: Exception) {
-                showManualEmailDialog = true
+                SnackbarController.showError("গুগল একাউন্ট কানেক্ট ব্যর্থ: ${e.message}")
             }
         } else {
             SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
@@ -424,53 +396,19 @@ fun BackupRestoreScreen(
                                 }
                             }
 
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        haptics.tap()
-                                        try {
-                                            val intent = android.accounts.AccountManager.newChooseAccountIntent(
-                                                null,
-                                                null,
-                                                arrayOf("com.google"),
-                                                null,
-                                                null,
-                                                null,
-                                                null
-                                            )
-                                            accountPickerLauncher.launch(intent)
-                                        } catch (e: Exception) {
-                                            try {
-                                                val client = viewModel.driveBackupManager.getGoogleSignInClient()
-                                                googleSignInLauncher.launch(client.signInIntent)
-                                            } catch (e2: Exception) {
-                                                manualEmailInput = ""
-                                                showManualEmailDialog = true
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("গুগল ড্রাইভ কানেক্ট করুন", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        haptics.tap()
-                                        manualEmailInput = ""
-                                        showManualEmailDialog = true
-                                    },
-                                    modifier = Modifier.fillMaxWidth().height(42.dp),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("জিমেইল একাউন্ট লিখে কানেক্ট করুন", fontSize = 13.sp)
-                                }
+                            Button(
+                                onClick = {
+                                    haptics.tap()
+                                    val client = viewModel.driveBackupManager.getGoogleSignInClient()
+                                    googleSignInLauncher.launch(client.signInIntent)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(46.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("গুগল ড্রাইভ কানেক্ট করুন", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1106,57 +1044,6 @@ fun BackupRestoreScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deleteConfirmBackup = null }) {
-                    Text("বাতিল")
-                }
-            }
-        )
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // Dialog 6: Manual Gmail Account Input
-    // ══════════════════════════════════════════════════════════════
-    if (showManualEmailDialog) {
-        AlertDialog(
-            onDismissRequest = { showManualEmailDialog = false },
-            title = {
-                Text("জিমেইল একাউন্ট সংযুক্ত করুন", fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "ক্লাউড ব্যাকআপ ও গুগল ড্রাইভ সিঙ্কের জন্য আপনার জিমেইল আইডি দিন:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = manualEmailInput,
-                        onValueChange = { manualEmailInput = it },
-                        label = { Text("Gmail ঠিকানা") },
-                        placeholder = { Text("example@gmail.com") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Email, contentDescription = null)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (manualEmailInput.isNotBlank() && manualEmailInput.contains("@")) {
-                            viewModel.connectGoogleEmail(manualEmailInput.trim())
-                            showManualEmailDialog = false
-                        } else {
-                            SnackbarController.showError("সঠিক ইমেইল ঠিকানা দিন")
-                        }
-                    }
-                ) {
-                    Text("কানেক্ট করুন")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showManualEmailDialog = false }) {
                     Text("বাতিল")
                 }
             }
