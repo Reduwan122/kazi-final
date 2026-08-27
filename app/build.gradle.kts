@@ -66,20 +66,12 @@ android {
       }
     }
     create("debugConfig") {
-      val kaziKeystore = file("${rootDir}/kazi_keystore.jks")
-      if (kaziKeystore.exists()) {
-        storeFile = kaziKeystore
-        storePassword = "kaziagro123"
-        keyAlias = "kaziagro"
-        keyPassword = "kaziagro123"
-      } else {
-        val rootDebugKeystore = file("${rootDir}/debug.keystore")
-        if (rootDebugKeystore.exists()) {
-          storeFile = rootDebugKeystore
-          storePassword = "android"
-          keyAlias = "androiddebugkey"
-          keyPassword = "android"
-        }
+      val rootDebugKeystore = file("${rootDir}/debug.keystore")
+      if (rootDebugKeystore.exists()) {
+        storeFile = rootDebugKeystore
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
       }
     }
   }

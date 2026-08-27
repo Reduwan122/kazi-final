@@ -16,14 +16,10 @@
       "oauth_client": [
         {
           "client_id": "943658387428-85besnmkdehm108jis001h7v9c5drhtk.apps.googleusercontent.com",
-          "client_type": 3
-        },
-        {
-          "client_id": "186505655967-kaziagro.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.aistudio.kaziagro.poultr",
-            "certificate_hash": "f5897208fa8f4a7e2f9dc47f4612343000baaa0f"
+            "certificate_hash": "0aa4f81ff6179fb12fba55defcf2233dcbdfc2b2"
           }
         }
       ],
@@ -34,12 +30,7 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "943658387428-85besnmkdehm108jis001h7v9c5drhtk.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
