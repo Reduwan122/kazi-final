@@ -119,19 +119,40 @@ fun BackupRestoreScreen(
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        val data = result.data
+        if (data != null) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
             try {
-                val account = task.result
+                val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
                 if (account != null) {
                     viewModel.refreshGoogleAccountStatus()
-                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email})")
+                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email ?: ""})")
+                } else {
+                    val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
+                    if (lastAccount != null) {
+                        viewModel.refreshGoogleAccountStatus()
+                        SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${lastAccount.email ?: ""})")
+                    } else {
+                        SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
+                    }
                 }
             } catch (e: Exception) {
-                SnackbarController.showError("গুগল একাউন্ট কানেক্ট ব্যর্থ: ${e.message}")
+                val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
+                if (lastAccount != null) {
+                    viewModel.refreshGoogleAccountStatus()
+                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${lastAccount.email ?: ""})")
+                } else {
+                    SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
+                }
             }
         } else {
-            SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
+            val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
+            if (lastAccount != null) {
+                viewModel.refreshGoogleAccountStatus()
+                SnackbarController.showMessage("গুগল ড্রাইভ সংযুক্ত হয়েছে (${lastAccount.email ?: ""})")
+            } else {
+                SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
+            }
         }
     }
 

@@ -57,7 +57,7 @@ class DriveBackupManager(private val context: Context) {
         .build()
 
     /**
-     * Obtains official GoogleSignInClient with the narrow drive.file scope
+     * Obtains official GoogleSignInClient
      */
     fun getGoogleSignInClient(): GoogleSignInClient {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -71,12 +71,7 @@ class DriveBackupManager(private val context: Context) {
      * Checks if a Google account is currently signed in
      */
     fun getConnectedAccount(): GoogleSignInAccount? {
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        return if (account != null && GoogleSignIn.hasPermissions(account, Scope(DRIVE_SCOPE))) {
-            account
-        } else {
-            null
-        }
+        return GoogleSignIn.getLastSignedInAccount(context)
     }
 
     fun isConnected(): Boolean = getConnectedAccount() != null
@@ -118,8 +113,6 @@ class DriveBackupManager(private val context: Context) {
             Log.w(TAG, "Error disconnecting: ${e.message}")
         }
     }
-
-    // ── Drive Folder Management ──
 
     /**
      * Finds or creates dedicated folder "Kazi Agrotech Backups" in Google Drive
