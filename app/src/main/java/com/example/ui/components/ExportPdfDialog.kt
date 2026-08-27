@@ -82,6 +82,9 @@ fun PdfPreviewModalDialog(
 ) {
     val context = LocalContext.current
     val isDailyReport = dailyReports.isNotEmpty()
+    // Chronologically sort entries for PDF preview and print (oldest/first date on top, newest/last date at bottom)
+    val sortedDailyReports = remember(dailyReports) { dailyReports.sortedBy { it.date } }
+    val sortedExpenses = remember(expenses) { expenses.sortedBy { it.date } }
     // Use full history for stock calculations; fall back to filtered reports if no full history
     val fullReports = if (allReports.isNotEmpty()) allReports else dailyReports
 
@@ -121,7 +124,7 @@ fun PdfPreviewModalDialog(
                             IconButton(
                                 onClick = {
                                     val printDocName = "Kazi_Agrotech_${System.currentTimeMillis()}"
-                                    printHtmlDocument(context, printDocName, generateHtmlContent(title, farmProfile, dailyReports, fullReports, baselineStock, expenses))
+                                    printHtmlDocument(context, printDocName, generateHtmlContent(title, farmProfile, sortedDailyReports, fullReports, baselineStock, sortedExpenses))
                                 }
                             ) {
                                 Icon(
@@ -282,9 +285,9 @@ fun PdfPreviewModalDialog(
 
                             // Table Content
                             if (isDailyReport) {
-                                DailyReportPdfTable(dailyReports, fullReports, baselineStock)
+                                DailyReportPdfTable(sortedDailyReports, fullReports, baselineStock)
                             } else {
-                                MonthlyExpensePdfTable(expenses)
+                                MonthlyExpensePdfTable(sortedExpenses)
                             }
 
                             Spacer(modifier = Modifier.height(36.dp))
@@ -365,7 +368,7 @@ fun PdfPreviewModalDialog(
                         Button(
                             onClick = {
                                 val printDocName = "Kazi_Agrotech_Report"
-                                printHtmlDocument(context, printDocName, generateHtmlContent(title, farmProfile, dailyReports, fullReports, baselineStock, expenses))
+                                printHtmlDocument(context, printDocName, generateHtmlContent(title, farmProfile, sortedDailyReports, fullReports, baselineStock, sortedExpenses))
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.weight(1.3f).height(46.dp),
@@ -404,6 +407,8 @@ fun DailyReportPdfTable(
         )
     }
 
+    val sortedReports = remember(reports) { reports.sortedBy { it.date } }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -426,7 +431,7 @@ fun DailyReportPdfTable(
         }
 
         // Table Rows
-        reports.forEachIndexed { index, r ->
+        sortedReports.forEachIndexed { index, r ->
             val bg = if (index % 2 == 0) Color.White else Color(0xFFF9F9F9)
             Row(
                 modifier = Modifier
@@ -467,6 +472,7 @@ fun DailyReportPdfTable(
 @Composable
 fun MonthlyExpensePdfTable(expenses: List<MonthlyExpenseEntity>) {
     val scrollState = rememberScrollState()
+    val sortedExpenses = remember(expenses) { expenses.sortedBy { it.date } }
 
     Column(
         modifier = Modifier
@@ -493,7 +499,7 @@ fun MonthlyExpensePdfTable(expenses: List<MonthlyExpenseEntity>) {
         }
 
         // Table Rows
-        expenses.forEachIndexed { index, e ->
+        sortedExpenses.forEachIndexed { index, e ->
             val bg = if (index % 2 == 0) Color.White else Color(0xFFF9F9F9)
             Row(
                 modifier = Modifier
@@ -592,7 +598,10 @@ fun generateHtmlContent(
     baselineStock: Int = 0,
     expenses: List<MonthlyExpenseEntity>
 ): String {
-    val isDaily = dailyReports.isNotEmpty()
+    // Chronologically sort entries for PDF generation (oldest/first date on top, newest/last date at bottom)
+    val sortedReports = dailyReports.sortedBy { it.date }
+    val sortedExpenses = expenses.sortedBy { it.date }
+    val isDaily = sortedReports.isNotEmpty()
     val currentDateStr = BanglaNumberFormatter.toBanglaDigits(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date()))
 
     val logoHtml = if (farmProfile.logoUri.isNotBlank()) {
@@ -611,7 +620,7 @@ fun generateHtmlContent(
 
     val tableRows = StringBuilder()
     if (isDaily) {
-        for (r in dailyReports) {
+        for (r in sortedReports) {
             tableRows.append("<tr>")
             tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(r.date)}</td>")
             tableRows.append("<td>${BanglaNumberFormatter.formatNumber(r.currentBirds)}</td>")
@@ -635,7 +644,7 @@ fun generateHtmlContent(
         tableRows.append("<td>-</td>")
         tableRows.append("<td style='color:#0D631B;'>${BanglaNumberFormatter.formatCurrency(totalSale)}</td></tr>")
     } else {
-        for (e in expenses) {
+        for (e in sortedExpenses) {
             tableRows.append("<tr>")
             tableRows.append("<td style='text-align:center;'>${BanglaNumberFormatter.formatShortDate(e.date)}</td>")
             tableRows.append("<td>${if (e.feedCost > 0) BanglaNumberFormatter.formatCurrency(e.feedCost) else "০"}</td>")
