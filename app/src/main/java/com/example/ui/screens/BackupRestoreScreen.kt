@@ -121,16 +121,21 @@ fun BackupRestoreScreen(
         if (result.resultCode == Activity.RESULT_OK) {
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
-                val account = task.result
+                // By getting result with ApiException::class.java it throws if failed
+                val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
                 if (account != null) {
                     viewModel.refreshGoogleAccountStatus()
-                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email})")
+                    SnackbarController.showMessage("গুগল ড্রাইভ কানেক্ট হয়েছে (${account.email})")
                 }
+            } catch (e: com.google.android.gms.common.api.ApiException) {
+                val statusCode = e.statusCode
+                val errorMsg = com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes.getStatusCodeString(statusCode)
+                SnackbarController.showError("গুগল লগইন ফেইলড! কোড: $statusCode ($errorMsg)")
             } catch (e: Exception) {
-                SnackbarController.showError("গুগল একাউন্ট কানেক্ট ব্যর্থ: ${e.message}")
+                SnackbarController.showError("গুগল কানেক্ট হতে সমস্যা হয়েছে: ${e.message}")
             }
         } else {
-            SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
+            SnackbarController.showError("লগইন বাতিল করা হয়েছে (Result: ${result.resultCode})")
         }
     }
 
