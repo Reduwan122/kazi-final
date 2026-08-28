@@ -618,17 +618,18 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-                    // Google Drive Backup & Restore
-                    val googleAccountEmail by viewModel.googleAccountEmail.collectAsState()
-                    val lastBackupTimestamp by viewModel.lastBackupTimestamp.collectAsState()
+                    // Google Sheets Cloud Backup
+                    val lastSheetsBackupTime by viewModel.lastSheetsBackupTime.collectAsState()
+                    val webAppUrl by viewModel.sheetsWebAppUrl.collectAsState()
 
                     SettingsRowItem(
                         icon = Icons.Default.CloudUpload,
-                        title = "ব্যাকআপ ও রিস্টোর",
-                        subtitle = if (googleAccountEmail != null) {
-                            "একাউন্ট ($googleAccountEmail) • ${if (lastBackupTimestamp > 0) "সর্বশেষ: " + viewModel.driveBackupManager.formatDateFromMillis(lastBackupTimestamp) else "কোনো ব্যাকআপ নেই"}"
+                        title = "ক্লাউড ব্যাকআপ (Google Sheets)",
+                        subtitle = if (webAppUrl.isNotBlank()) {
+                            if (lastSheetsBackupTime > 0) "সর্বশেষ: " + viewModel.sheetsBackupManager.formatTimestampBangla(lastSheetsBackupTime)
+                            else "অনলাইন ব্যাকআপ সক্রিয় • কোনো ব্যাকআপ নেই"
                         } else {
-                            "গুগল ড্রাইভ কানেক্ট করুন, লোকাল ব্যাকআপ ও রিস্টোর"
+                            "গুগল শিট ক্লাউড ব্যাকআপ কনফিগার করুন"
                         },
                         onClick = onNavigateToBackupRestore
                     )

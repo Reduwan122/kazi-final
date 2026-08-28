@@ -2,6 +2,7 @@ package com.example.data.backup
 
 import android.content.Context
 import android.util.Log
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -16,36 +17,29 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-class AutoBackupWorker(
+class SheetsBackupWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
-    private val TAG = "AutoBackupWorker"
+    private val TAG = "SheetsBackupWorker"
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        val driveManager = DriveBackupManager(applicationContext)
+        val manager = GoogleSheetsBackupManager(applicationContext)
 
-        if (!driveManager.isAutoBackupEnabled()) {
-            Log.d(TAG, "Auto backup is disabled. Skipping.")
+        if (!manager.isAutoBackupEnabled()) {
+            Log.d(TAG, "Auto Google Sheets backup is disabled. Skipping.")
             return@withContext Result.success()
         }
 
-        if (!driveManager.isConnected()) {
-            Log.w(TAG, "Google Drive account not connected. Skipping auto backup.")
+        val webAppUrl = manager.getWebAppUrl()
+        if (webAppUrl.isBlank()) {
+            Log.w(TAG, "Google Sheets Web App URL not configured. Skipping.")
             return@withContext Result.success()
         }
 
-        val auth = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
-        val currentUser = auth?.currentUser
-        if (currentUser == null) {
-            Log.w(TAG, "User not authenticated. Skipping auto backup.")
-            return@withContext Result.success()
-        }
-
-        val accessToken = driveManager.getAccessToken()
-        if (accessToken == null) {
-            Log.w(TAG, "Could not acquire Google OAuth token for auto backup.")
+        if (!manager.isNetworkAvailable()) {
+            Log.w(TAG, "No internet connection for Google Sheets backup. Will retry.")
             return@withContext Result.retry()
         }
 
@@ -55,52 +49,62 @@ class AutoBackupWorker(
             val dailyReports = repository.allDailyReports.first()
             val monthlyExpenses = repository.allExpenses.first()
             val rolePermissions = repository.rolePermissions.first()
+            val allUsers = repository.allUsers.first()
 
-            val backupJson = driveManager.createBackupJson(
+            val auth = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
+            val currentUser = auth?.currentUser
+
+            val backupResult = manager.executeBackup(
                 farmProfile = farmProfile,
                 dailyReports = dailyReports,
                 monthlyExpenses = monthlyExpenses,
+                users = allUsers,
                 rolePermissions = rolePermissions,
-                userId = currentUser.uid,
-                userEmail = currentUser.email ?: "",
-                password = null,
-                isPreRestore = false
+                userId = currentUser?.uid ?: "",
+                userEmail = currentUser?.email ?: ""
             )
 
-            val uploadResult = driveManager.uploadBackupToDrive(
-                backupJsonString = backupJson,
-                isPreRestore = false,
-                accessToken = accessToken
-            )
-
-            if (uploadResult.isSuccess) {
-                Log.i(TAG, "Automatic backup succeeded: ${uploadResult.getOrNull()?.name}")
+            if (backupResult.isSuccess) {
+                Log.i(TAG, "Automatic Google Sheets backup succeeded: ${backupResult.getOrNull()?.message}")
                 Result.success()
             } else {
-                Log.e(TAG, "Automatic backup upload failed: ${uploadResult.exceptionOrNull()?.message}")
+                Log.e(TAG, "Automatic Google Sheets backup failed: ${backupResult.exceptionOrNull()?.message}")
                 Result.retry()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Auto backup execution error: ${e.message}", e)
+            Log.e(TAG, "Exception during Sheets auto backup: ${e.message}", e)
             Result.retry()
         }
     }
 
     companion object {
-        private const val WORK_NAME = "KaziAgroAutoBackupWork"
+        const val WORK_NAME = "KaziAgroSheetsAutoBackupWork"
 
         fun schedule(context: Context, frequency: String) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
-            val intervalHours = if (frequency.equals("WEEKLY", ignoreCase = true)) 24L * 7L else 24L
+            val intervalHours = when (frequency.uppercase()) {
+                "DAILY", "24_HOURS", "24" -> 24L
+                "12_HOURS", "12" -> 12L
+                "6_HOURS", "6" -> 6L
+                "MANUAL" -> {
+                    cancel(context)
+                    return
+                }
+                else -> 6L // Default 6 hours
+            }
 
-            val workRequest = PeriodicWorkRequestBuilder<AutoBackupWorker>(
+            val workRequest = PeriodicWorkRequestBuilder<SheetsBackupWorker>(
                 intervalHours, TimeUnit.HOURS,
-                1, TimeUnit.HOURS // flex interval
+                15, TimeUnit.MINUTES // Flex interval
             )
                 .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    15, TimeUnit.MINUTES
+                )
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -108,11 +112,12 @@ class AutoBackupWorker(
                 ExistingPeriodicWorkPolicy.UPDATE,
                 workRequest
             )
+            Log.i("SheetsBackupWorker", "Scheduled Sheets Auto Backup every $intervalHours hours")
         }
 
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+            Log.i("SheetsBackupWorker", "Cancelled Sheets Auto Backup")
         }
     }
 }
-

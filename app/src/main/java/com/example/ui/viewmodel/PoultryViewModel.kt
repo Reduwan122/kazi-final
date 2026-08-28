@@ -11,11 +11,11 @@ import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.backup.AutoBackupWorker
-import com.example.data.backup.BackupDataContent
-import com.example.data.backup.BackupProgressState
-import com.example.data.backup.DriveBackupManager
-import com.example.data.backup.DriveFileInfo
+import com.example.data.backup.GoogleSheetsBackupManager
+import com.example.data.backup.SheetsBackupData
+import com.example.data.backup.SheetsBackupResponse
+import com.example.data.backup.SheetsBackupStatus
+import com.example.data.backup.SheetsBackupWorker
 import com.example.data.local.DailyReportEntity
 import com.example.data.local.FarmProfileEntity
 import com.example.data.local.MonthlyExpenseEntity
@@ -47,7 +47,7 @@ import java.util.Locale
 class PoultryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: PoultryRepository = PoultryRepository(application)
-    val driveBackupManager: DriveBackupManager = DriveBackupManager(application)
+    val sheetsBackupManager: GoogleSheetsBackupManager = GoogleSheetsBackupManager(application)
     val appUpdateManager: AppUpdateManager = AppUpdateManager(application)
 
     val updateState: StateFlow<UpdateState> = appUpdateManager.updateState
@@ -63,24 +63,27 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     val stockLedger: StateFlow<Map<String, DailyStockRecord>>
     val syncStatus = MutableStateFlow("ফায়ারবেস ক্লাউড সিঙ্ক সফল")
 
-    // Google Drive Backup StateFlows
-    private val _googleAccountEmail = MutableStateFlow<String?>(driveBackupManager.getConnectedAccount()?.email)
-    val googleAccountEmail: StateFlow<String?> = _googleAccountEmail.asStateFlow()
+    // Google Sheets Cloud Backup StateFlows
+    private val _sheetsBackupStatus = MutableStateFlow<SheetsBackupStatus>(SheetsBackupStatus.Idle)
+    val sheetsBackupStatus: StateFlow<SheetsBackupStatus> = _sheetsBackupStatus.asStateFlow()
 
-    private val _backupProgressState = MutableStateFlow<BackupProgressState>(BackupProgressState.Idle)
-    val backupProgressState: StateFlow<BackupProgressState> = _backupProgressState.asStateFlow()
+    private val _lastSheetsBackupTime = MutableStateFlow(sheetsBackupManager.getLastBackupTimestamp())
+    val lastSheetsBackupTime: StateFlow<Long> = _lastSheetsBackupTime.asStateFlow()
 
-    private val _driveBackupsList = MutableStateFlow<List<DriveFileInfo>>(emptyList())
-    val driveBackupsList: StateFlow<List<DriveFileInfo>> = _driveBackupsList.asStateFlow()
+    private val _isSheetsAutoBackupEnabled = MutableStateFlow(sheetsBackupManager.isAutoBackupEnabled())
+    val isSheetsAutoBackupEnabled: StateFlow<Boolean> = _isSheetsAutoBackupEnabled.asStateFlow()
 
-    private val _lastBackupTimestamp = MutableStateFlow(driveBackupManager.getLastBackupTimestamp())
-    val lastBackupTimestamp: StateFlow<Long> = _lastBackupTimestamp.asStateFlow()
+    private val _sheetsBackupFrequency = MutableStateFlow(sheetsBackupManager.getAutoBackupFrequency())
+    val sheetsBackupFrequency: StateFlow<String> = _sheetsBackupFrequency.asStateFlow()
 
-    private val _isAutoBackupEnabled = MutableStateFlow(driveBackupManager.isAutoBackupEnabled())
-    val isAutoBackupEnabled: StateFlow<Boolean> = _isAutoBackupEnabled.asStateFlow()
+    private val _sheetsWebAppUrl = MutableStateFlow(sheetsBackupManager.getWebAppUrl())
+    val sheetsWebAppUrl: StateFlow<String> = _sheetsWebAppUrl.asStateFlow()
 
-    private val _autoBackupFrequency = MutableStateFlow(driveBackupManager.getAutoBackupFrequency())
-    val autoBackupFrequency: StateFlow<String> = _autoBackupFrequency.asStateFlow()
+    private val _sheetsApiToken = MutableStateFlow(sheetsBackupManager.getApiToken())
+    val sheetsApiToken: StateFlow<String> = _sheetsApiToken.asStateFlow()
+
+    private val _lastSheetsBackupCount = MutableStateFlow(sheetsBackupManager.getLastBackupCount())
+    val lastSheetsBackupCount: StateFlow<Int> = _lastSheetsBackupCount.asStateFlow()
 
     // Daily Report Filters
     val dailySearchQuery = MutableStateFlow("")
@@ -757,385 +760,86 @@ class PoultryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // Google Drive Backup & Restore Operations
+    // Google Sheets Cloud Backup Operations
     // ══════════════════════════════════════════════════════════════════════
 
-    fun refreshGoogleAccountStatus() {
-        _googleAccountEmail.value = driveBackupManager.getConnectedAccount()?.email
-        _lastBackupTimestamp.value = driveBackupManager.getLastBackupTimestamp()
-        _isAutoBackupEnabled.value = driveBackupManager.isAutoBackupEnabled()
-        _autoBackupFrequency.value = driveBackupManager.getAutoBackupFrequency()
-        if (driveBackupManager.isConnected()) {
-            fetchDriveBackupsList()
-        }
+    fun refreshSheetsBackupState() {
+        _lastSheetsBackupTime.value = sheetsBackupManager.getLastBackupTimestamp()
+        _isSheetsAutoBackupEnabled.value = sheetsBackupManager.isAutoBackupEnabled()
+        _sheetsBackupFrequency.value = sheetsBackupManager.getAutoBackupFrequency()
+        _sheetsWebAppUrl.value = sheetsBackupManager.getWebAppUrl()
+        _sheetsApiToken.value = sheetsBackupManager.getApiToken()
+        _lastSheetsBackupCount.value = sheetsBackupManager.getLastBackupCount()
     }
 
-    fun disconnectGoogleAccount(onDone: () -> Unit = {}) {
+    fun triggerSheetsBackup(onComplete: ((Boolean, String) -> Unit)? = null) {
         viewModelScope.launch {
-            driveBackupManager.disconnect()
-            _googleAccountEmail.value = null
-            _driveBackupsList.value = emptyList()
-            AutoBackupWorker.cancel(getApplication())
-            driveBackupManager.setAutoBackupEnabled(false)
-            _isAutoBackupEnabled.value = false
-            SnackbarController.showMessage("গুগল ড্রাইভ অ্যাকাউন্ট সংযোগ বিচ্ছিন্ন করা হয়েছে")
-            onDone()
-        }
-    }
-
-    fun fetchDriveBackupsList() {
-        viewModelScope.launch {
-            val token = driveBackupManager.getAccessToken() ?: return@launch
-            val res = driveBackupManager.listBackupsFromDrive(token)
-            if (res.isSuccess) {
-                _driveBackupsList.value = res.getOrDefault(emptyList())
-            }
-        }
-    }
-
-    fun performManualBackup(
-        password: String? = null,
-        onSuccess: (DriveFileInfo) -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        viewModelScope.launch {
-            if (!driveBackupManager.isNetworkAvailable()) {
-                val err = "ইন্টারনেট সংযোগ নেই। ইন্টারনেট চালু করে আবার চেষ্টা করুন।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
+            if (_sheetsBackupStatus.value is SheetsBackupStatus.InProgress) {
                 return@launch
             }
 
-            if (!driveBackupManager.isConnected()) {
-                val err = "প্রথমে গুগল ড্রাইভ অ্যাকাউন্ট সংযোগ করুন।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-                return@launch
-            }
-
-            _backupProgressState.value = BackupProgressState.Connecting()
-
-            val token = driveBackupManager.getAccessToken()
-            if (token == null) {
-                val err = "গুগল ড্রাইভ অনুমোদন টোকেন প্রাপ্তি ব্যর্থ হয়েছে।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-                return@launch
-            }
-
-            _backupProgressState.value = BackupProgressState.Preparing()
+            _sheetsBackupStatus.value = SheetsBackupStatus.InProgress
 
             val user = currentUser.value
-            val userId = user?.id ?: ""
-            val userEmail = user?.email ?: ""
-
-            val backupJson = driveBackupManager.createBackupJson(
+            val result = sheetsBackupManager.executeBackup(
                 farmProfile = farmProfile.value,
                 dailyReports = dailyReports.value,
                 monthlyExpenses = expenses.value,
+                users = allUsers.value,
                 rolePermissions = rolePermissions.value,
-                userId = userId,
-                userEmail = userEmail,
-                password = password,
-                isPreRestore = false
-            )
-
-            _backupProgressState.value = BackupProgressState.Uploading()
-
-            val result = driveBackupManager.uploadBackupToDrive(
-                backupJsonString = backupJson,
-                isPreRestore = false,
-                accessToken = token
+                userId = user?.id ?: "",
+                userEmail = user?.email ?: ""
             )
 
             if (result.isSuccess) {
-                val fileInfo = result.getOrThrow()
-                _lastBackupTimestamp.value = fileInfo.createdTime
-                _backupProgressState.value = BackupProgressState.Success("আপনার খামার ডেটা সফলভাবে গুগল ড্রাইভে ব্যাকআপ করা হয়েছে।")
-                SnackbarController.showMessage("গুগল ড্রাইভে ব্যাকআপ সফল হয়েছে!")
-                fetchDriveBackupsList()
-                onSuccess(fileInfo)
-            } else {
-                val err = result.exceptionOrNull()?.message ?: "ব্যাকআপ আপলোড ব্যর্থ হয়েছে।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-            }
-        }
-    }
-
-    fun performRestore(
-        driveFile: DriveFileInfo,
-        password: String? = null,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        viewModelScope.launch {
-            if (!driveBackupManager.isNetworkAvailable()) {
-                val err = "ইন্টারনেট সংযোগ নেই। ইন্টারনেট চালু করে আবার চেষ্টা করুন।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-                return@launch
-            }
-
-            val token = driveBackupManager.getAccessToken()
-            if (token == null) {
-                val err = "গুগল ড্রাইভ অনুমোদন টোকেন প্রাপ্তি ব্যর্থ হয়েছে।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-                return@launch
-            }
-
-            _backupProgressState.value = BackupProgressState.Downloading()
-
-            val downloadResult = driveBackupManager.downloadBackupFromDrive(driveFile.id, token)
-            if (downloadResult.isFailure) {
-                val err = downloadResult.exceptionOrNull()?.message ?: "ব্যাকআপ ফাইল ডাউনলোড ব্যর্থ।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-                return@launch
-            }
-
-            val jsonContent = downloadResult.getOrThrow()
-            val currentUid = currentUser.value?.id ?: ""
-
-            val parseResult = driveBackupManager.validateAndParseBackup(
-                jsonString = jsonContent,
-                currentUserId = currentUid,
-                password = password
-            )
-
-            if (parseResult.isFailure) {
-                val err = parseResult.exceptionOrNull()?.message ?: "অবৈধ ব্যাকআপ ফাইল।"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-                return@launch
-            }
-
-            val restoredData = parseResult.getOrThrow()
-
-            _backupProgressState.value = BackupProgressState.Restoring("পূর্ববর্তী ডেটার সুরক্ষা ব্যাকআপ তৈরি হচ্ছে...")
-
-            // Safety pre-restore backup
-            try {
-                val safetyBackupJson = driveBackupManager.createBackupJson(
-                    farmProfile = farmProfile.value,
-                    dailyReports = dailyReports.value,
-                    monthlyExpenses = expenses.value,
-                    rolePermissions = rolePermissions.value,
-                    userId = currentUid,
-                    userEmail = currentUser.value?.email ?: "",
-                    password = null,
-                    isPreRestore = true
+                val resp = result.getOrThrow()
+                val nowTime = System.currentTimeMillis()
+                _lastSheetsBackupTime.value = nowTime
+                _lastSheetsBackupCount.value = resp.recordsProcessed
+                _sheetsBackupStatus.value = SheetsBackupStatus.Success(
+                    message = "ক্লাউড ব্যাকআপ সফল হয়েছে",
+                    timestamp = nowTime
                 )
-                driveBackupManager.uploadBackupToDrive(
-                    backupJsonString = safetyBackupJson,
-                    isPreRestore = true,
-                    accessToken = token
-                )
-            } catch (e: Exception) {
-                Log.w("PoultryViewModel", "Safety pre-restore backup skipped or failed: ${e.message}")
-            }
-
-            _backupProgressState.value = BackupProgressState.Restoring("ডেটাবেজ ও স্টক হিসাব রিস্টোর হচ্ছে...")
-
-            try {
-                repository.restoreCompleteBackup(restoredData)
-                _backupProgressState.value = BackupProgressState.Success("ব্যাকআপ সফলভাবে রিস্টোর করা হয়েছে!")
-                SnackbarController.showMessage("ব্যাকআপ সফলভাবে রিস্টোর ও স্টক হিসাব সম্পন্ন হয়েছে!")
-                fetchDriveBackupsList()
-                onSuccess()
-            } catch (e: Exception) {
-                val err = "রিস্টোর ব্যর্থ হয়েছে: ${e.message}"
-                _backupProgressState.value = BackupProgressState.Error(err)
-                SnackbarController.showError(err)
-                onError(err)
-            }
-        }
-    }
-
-    fun deleteDriveBackup(
-        driveFile: DriveFileInfo,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        viewModelScope.launch {
-            val token = driveBackupManager.getAccessToken() ?: return@launch
-            val res = driveBackupManager.deleteBackupFromDrive(driveFile.id, token)
-            if (res.isSuccess) {
-                SnackbarController.showMessage("ব্যাকআপ ফাইল ডিলিট করা হয়েছে")
-                fetchDriveBackupsList()
-                onSuccess()
+                SnackbarController.showMessage("ক্লাউড ব্যাকআপ সফল হয়েছে")
+                onComplete?.invoke(true, "ক্লাউড ব্যাকআপ সফল হয়েছে")
             } else {
-                val err = res.exceptionOrNull()?.message ?: "ফাইল ডিলিট ব্যর্থ হয়েছে"
-                SnackbarController.showError(err)
-                onError(err)
+                val err = result.exceptionOrNull()?.message ?: "ব্যাকআপ সম্পন্ন হয়নি। পরে আবার চেষ্টা করা হবে।"
+                _sheetsBackupStatus.value = SheetsBackupStatus.Error(err)
+                SnackbarController.showError("ব্যাকআপ সম্পন্ন হয়নি। পরে আবার চেষ্টা করা হবে।")
+                onComplete?.invoke(false, err)
             }
         }
     }
 
-    fun updateAutoBackupSettings(enabled: Boolean, frequency: String) {
-        driveBackupManager.setAutoBackupEnabled(enabled)
-        driveBackupManager.setAutoBackupFrequency(frequency)
-        _isAutoBackupEnabled.value = enabled
-        _autoBackupFrequency.value = frequency
+    fun updateSheetsBackupSettings(
+        webAppUrl: String,
+        apiToken: String,
+        autoBackupEnabled: Boolean,
+        frequency: String
+    ) {
+        sheetsBackupManager.setWebAppUrl(webAppUrl)
+        sheetsBackupManager.setApiToken(apiToken)
+        sheetsBackupManager.setAutoBackupEnabled(autoBackupEnabled)
+        sheetsBackupManager.setAutoBackupFrequency(frequency)
 
-        if (enabled && driveBackupManager.isConnected()) {
-            AutoBackupWorker.schedule(getApplication(), frequency)
-            SnackbarController.showMessage("স্বয়ংক্রিয় ব্যাকআপ সক্রিয় করা হয়েছে ($frequency)")
+        _sheetsWebAppUrl.value = webAppUrl
+        _sheetsApiToken.value = apiToken
+        _isSheetsAutoBackupEnabled.value = autoBackupEnabled
+        _sheetsBackupFrequency.value = frequency
+
+        if (autoBackupEnabled && webAppUrl.isNotBlank()) {
+            SheetsBackupWorker.schedule(getApplication(), frequency)
+            SnackbarController.showMessage("স্বয়ংক্রিয় ব্যাকআপ সক্রিয় করা হয়েছে")
         } else {
-            AutoBackupWorker.cancel(getApplication())
-            if (!enabled) {
+            SheetsBackupWorker.cancel(getApplication())
+            if (!autoBackupEnabled) {
                 SnackbarController.showMessage("স্বয়ংক্রিয় ব্যাকআপ নিষ্ক্রিয় করা হয়েছে")
             }
         }
     }
 
-    fun exportBackupToUri(
-        context: Context,
-        uri: Uri,
-        password: String? = null,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val user = currentUser.value
-                val backupJson = driveBackupManager.createBackupJson(
-                    farmProfile = farmProfile.value,
-                    dailyReports = dailyReports.value,
-                    monthlyExpenses = expenses.value,
-                    rolePermissions = rolePermissions.value,
-                    userId = user?.id ?: "",
-                    userEmail = user?.email ?: "",
-                    password = password,
-                    isPreRestore = false
-                )
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(backupJson.toByteArray(Charsets.UTF_8))
-                    outputStream.flush()
-                } ?: throw Exception("ফাইল আউটপুট খুলতে ব্যর্থ হয়েছে")
-
-                withContext(Dispatchers.Main) {
-                    SnackbarController.showMessage("ব্যাকআপ ফাইলটি সফলভাবে সংরক্ষিত হয়েছে!")
-                    onSuccess()
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    val err = "ফাইল সংরক্ষণ ব্যর্থ: ${e.message}"
-                    SnackbarController.showError(err)
-                    onError(err)
-                }
-            }
-        }
-    }
-
-    fun restoreBackupFromUri(
-        context: Context,
-        uri: Uri,
-        password: String? = null,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val jsonString = context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    inputStream.bufferedReader(Charsets.UTF_8).readText()
-                } ?: throw Exception("ফাইল পড়তে ব্যর্থ হয়েছে")
-
-                val currentUid = currentUser.value?.id ?: ""
-                val parseResult = driveBackupManager.validateAndParseBackup(
-                    jsonString = jsonString,
-                    currentUserId = currentUid,
-                    password = password
-                )
-
-                if (parseResult.isFailure) {
-                    val err = parseResult.exceptionOrNull()?.message ?: "অবৈধ ব্যাকআপ ফাইল।"
-                    withContext(Dispatchers.Main) {
-                        SnackbarController.showError(err)
-                        onError(err)
-                    }
-                    return@launch
-                }
-
-                val restoredData = parseResult.getOrThrow()
-                repository.restoreCompleteBackup(restoredData)
-
-                withContext(Dispatchers.Main) {
-                    SnackbarController.showMessage("ফাইল থেকে সম্পূর্ণ ডেটা ও স্টক হিসাব সফলভাবে রিস্টোর হয়েছে!")
-                    onSuccess()
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    val err = "রিস্টোর ব্যর্থ: ${e.message}"
-                    SnackbarController.showError(err)
-                    onError(err)
-                }
-            }
-        }
-    }
-
-    fun shareBackupFile(
-        context: Context,
-        password: String? = null,
-        onError: (String) -> Unit = {}
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val user = currentUser.value
-                val backupJson = driveBackupManager.createBackupJson(
-                    farmProfile = farmProfile.value,
-                    dailyReports = dailyReports.value,
-                    monthlyExpenses = expenses.value,
-                    rolePermissions = rolePermissions.value,
-                    userId = user?.id ?: "",
-                    userEmail = user?.email ?: "",
-                    password = password,
-                    isPreRestore = false
-                )
-                val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
-                val fileName = "Kazi_Agrotech_Backup_${sdf.format(Date())}.kazi"
-                val file = File(context.cacheDir, fileName)
-                file.writeText(backupJson, Charsets.UTF_8)
-
-                val fileUri = FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    file
-                )
-
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/octet-stream"
-                    putExtra(Intent.EXTRA_STREAM, fileUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "কাজী এগ্রোটেক খামার ডেটা ব্যাকআপ")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-
-                withContext(Dispatchers.Main) {
-                    context.startActivity(Intent.createChooser(shareIntent, "গুগল ড্রাইভ বা অন্য অ্যাপে ব্যাকআপ শেয়ার করুন"))
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    val err = "শেয়ার প্রস্তুত ব্যর্থ: ${e.message}"
-                    SnackbarController.showError(err)
-                    onError(err)
-                }
-            }
-        }
-    }
-
     fun manualBackup(context: Context) {
-        viewModelScope.launch {
-            performManualBackup()
-        }
+        triggerSheetsBackup()
     }
 
     suspend fun getPreviousStockForDate(date: String): Int {

@@ -3,7 +3,7 @@ package com.example.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import com.example.data.backup.BackupDataContent
+import com.example.data.backup.SheetsBackupData
 import com.example.data.local.DailyReportEntity
 import com.example.data.local.FarmProfileEntity
 import com.example.data.local.MonthlyExpenseEntity
@@ -963,7 +963,7 @@ class PoultryRepository(
         }
     }
 
-    suspend fun restoreCompleteBackup(content: BackupDataContent) = withContext(Dispatchers.IO) {
+    suspend fun restoreCompleteBackup(content: SheetsBackupData) = withContext(Dispatchers.IO) {
         val reference = dbRef ?: throw Exception("Firebase Realtime Database সংযোগ পাওয়া যায়নি।")
 
         // 1. Recalculate complete sequential stock ledger from source transactions

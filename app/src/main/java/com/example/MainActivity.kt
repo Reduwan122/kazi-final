@@ -35,7 +35,7 @@ import com.example.ui.components.SnackbarBottomInset
 import com.example.ui.screens.AddEditDailyReportScreen
 import com.example.ui.screens.AddEditMonthlyExpenseScreen
 import com.example.ui.screens.AdminUserManagementScreen
-import com.example.ui.screens.BackupRestoreScreen
+import com.example.ui.screens.CloudBackupScreen
 import com.example.ui.screens.DailyReportDetailScreen
 import com.example.ui.screens.DailyReportScreen
 import com.example.ui.screens.DashboardScreen
@@ -271,7 +271,7 @@ fun MainAppNavigation(viewModel: PoultryViewModel) {
         }
 
         composable("backup_restore") {
-            BackupRestoreScreen(
+            CloudBackupScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
