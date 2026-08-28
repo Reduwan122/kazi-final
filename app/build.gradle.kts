@@ -1,4 +1,4 @@
-﻿import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 
 plugins {
   alias(libs.plugins.android.application)
@@ -66,12 +66,12 @@ android {
       }
     }
     create("debugConfig") {
-      val kaziKeystore = file("${rootDir}/kazi_keystore.jks")
-      if (kaziKeystore.exists()) {
-        storeFile = kaziKeystore
-        storePassword = "kaziagro123"
-        keyAlias = "kaziagro"
-        keyPassword = "kaziagro123"
+      val rootDebugKeystore = file("${rootDir}/debug.keystore")
+      if (rootDebugKeystore.exists()) {
+        storeFile = rootDebugKeystore
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
       }
     }
   }
@@ -180,4 +180,3 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }
-
