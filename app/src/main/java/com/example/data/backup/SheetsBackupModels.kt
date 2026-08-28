@@ -21,6 +21,8 @@ data class SheetsBackupPayload(
     val appName: String = "Kazi Agrotech",
     @Json(name = "timestamp")
     val timestamp: Long = System.currentTimeMillis(),
+    @Json(name = "request_id")
+    val requestId: String = "",
     @Json(name = "formatted_time")
     val formattedTime: String = "",
     @Json(name = "user_id")
@@ -65,3 +67,4 @@ sealed class SheetsBackupStatus {
     data class Success(val message: String, val timestamp: Long = System.currentTimeMillis()) : SheetsBackupStatus()
     data class Error(val errorMessage: String) : SheetsBackupStatus()
 }
+

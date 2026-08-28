@@ -60,13 +60,21 @@ class GoogleSheetsBackupManager(private val context: Context) {
     fun getWebAppUrl(): String = prefs.getString(KEY_WEB_APP_URL, "") ?: ""
 
     fun setWebAppUrl(url: String) {
-        prefs.edit().putString(KEY_WEB_APP_URL, url.trim()).apply()
+        val trimmed = url.trim()
+        val secureUrl = if (trimmed.startsWith("http://", ignoreCase = true)) {
+            "https://" + trimmed.removePrefix("http://")
+        } else trimmed
+        prefs.edit().putString(KEY_WEB_APP_URL, secureUrl).apply()
     }
 
-    fun getApiToken(): String = prefs.getString(KEY_API_TOKEN, "") ?: ""
+    fun getApiToken(): String {
+        val encrypted = prefs.getString(KEY_API_TOKEN, "") ?: ""
+        return BackupSecurityHelper.decrypt(encrypted)
+    }
 
     fun setApiToken(token: String) {
-        prefs.edit().putString(KEY_API_TOKEN, token.trim()).apply()
+        val encrypted = BackupSecurityHelper.encrypt(token.trim())
+        prefs.edit().putString(KEY_API_TOKEN, encrypted).apply()
     }
 
     fun isAutoBackupEnabled(): Boolean = prefs.getBoolean(KEY_AUTO_BACKUP, true)
@@ -125,6 +133,12 @@ class GoogleSheetsBackupManager(private val context: Context) {
             return@withContext Result.failure(Exception(err))
         }
 
+        if (!webAppUrl.startsWith("https://", ignoreCase = true)) {
+            val err = "নিরাপত্তার স্বার্থে শুধুমাত্র সুরক্ষিত HTTPS URL ব্যবহারযোগ্য।"
+            saveBackupResult(System.currentTimeMillis(), "ERROR", 0, err)
+            return@withContext Result.failure(Exception(err))
+        }
+
         if (!isNetworkAvailable()) {
             val err = "ইন্টারনেট সংযোগ নেই। অনুগ্রহ করে ডাটা বা ওয়াইফাই চালু করুন।"
             saveBackupResult(System.currentTimeMillis(), "ERROR", 0, err)
@@ -135,16 +149,19 @@ class GoogleSheetsBackupManager(private val context: Context) {
             val nowTime = System.currentTimeMillis()
             val sdf = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.US)
             val formattedTime = sdf.format(Date(nowTime))
+            val requestId = java.util.UUID.randomUUID().toString()
+            val token = getApiToken()
 
             val payload = SheetsBackupPayload(
                 backupSchemaVersion = 1,
                 appVersion = "1.0.0",
                 appName = "Kazi Agrotech",
                 timestamp = nowTime,
+                requestId = requestId,
                 formattedTime = formattedTime,
                 userId = userId,
                 userEmail = userEmail,
-                apiToken = getApiToken(),
+                apiToken = token,
                 data = SheetsBackupData(
                     farmProfile = farmProfile,
                     dailyReports = dailyReports,
@@ -160,17 +177,25 @@ class GoogleSheetsBackupManager(private val context: Context) {
             val mediaType = "application/json; charset=utf-8".toMediaType()
             val body = jsonPayloadString.toRequestBody(mediaType)
 
-            val request = Request.Builder()
+            val requestBuilder = Request.Builder()
                 .url(webAppUrl)
                 .post(body)
                 .addHeader("Content-Type", "application/json; charset=utf-8")
-                .build()
 
+            if (token.isNotBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $token")
+            }
+
+            val request = requestBuilder.build()
             val response = httpClient.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
 
             if (!response.isSuccessful && response.code != 302) {
-                val err = "সার্ভার রেসপন্স ব্যর্থ: HTTP ${response.code}"
+                val err = when (response.code) {
+                    401 -> "অননুমোদিত এক্সেস: সিক্রেট API Token সঠিক নয়।"
+                    429 -> "অতিরিক্ত রিকোয়েস্ট সীমা অতিক্রম হয়েছে। কিছুক্ষণ পর চেষ্টা করুন।"
+                    else -> "সার্ভার রেসপন্স ব্যর্থ: HTTP ${response.code}"
+                }
                 saveBackupResult(nowTime, "ERROR", 0, err)
                 return@withContext Result.failure(Exception(err))
             }
@@ -249,3 +274,4 @@ class GoogleSheetsBackupManager(private val context: Context) {
         return sb.toString()
     }
 }
+

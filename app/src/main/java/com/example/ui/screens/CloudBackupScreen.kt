@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -43,6 +45,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -509,6 +513,7 @@ fun CloudBackupScreen(
     if (showConfigDialog) {
         var inputUrl by remember { mutableStateOf(webAppUrl) }
         var inputToken by remember { mutableStateOf(apiToken) }
+        var isTokenVisible by remember { mutableStateOf(false) }
 
         AlertDialog(
             onDismissRequest = { showConfigDialog = false },
@@ -521,7 +526,7 @@ fun CloudBackupScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "গুগল শিটের Apps Script ডিপ্লয় করে প্রাপ্ত Web App URL টি এখানে দিন:",
+                        text = "গুগল শিটের Apps Script ডিপ্লয় করে প্রাপ্ত Web App URL ও সিক্রেট API Token দিন:",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -529,7 +534,7 @@ fun CloudBackupScreen(
                     OutlinedTextField(
                         value = inputUrl,
                         onValueChange = { inputUrl = it },
-                        label = { Text("Web App URL") },
+                        label = { Text("Web App URL (HTTPS)") },
                         placeholder = { Text("https://script.google.com/macros/s/.../exec") },
                         singleLine = false,
                         maxLines = 3,
@@ -539,11 +544,32 @@ fun CloudBackupScreen(
                     OutlinedTextField(
                         value = inputToken,
                         onValueChange = { inputToken = it },
-                        label = { Text("API Token (ঐচ্ছিক / Optional)") },
-                        placeholder = { Text("যদি স্ক্রিপ্টে সিক্রেট টোকেন দেন") },
+                        label = { Text("Secret API Token (নিরাপত্তা টোকেন)") },
+                        placeholder = { Text("Apps Script এ সেট করা গোপন টোকেন") },
                         singleLine = true,
+                        visualTransformation = if (isTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isTokenVisible = !isTokenVisible }) {
+                                Icon(
+                                    imageVector = if (isTokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (isTokenVisible) "Hide token" else "Show token"
+                                )
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ) {
+                        Text(
+                            text = "🔒 টোকেনটি Android KeyStore এ AES-256 দিয়ে এনক্রিপ্ট হয়ে সংরক্ষিত থাকে।",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -629,3 +655,4 @@ fun CloudBackupScreen(
         )
     }
 }
+

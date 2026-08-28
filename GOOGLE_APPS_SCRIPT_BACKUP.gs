@@ -1,106 +1,201 @@
 /**
  * ==============================================================================
- * KAZI AGROTECH — GOOGLE APPS SCRIPT BACKUP WEB APP
+ * KAZI AGROTECH — SECURE GOOGLE APPS SCRIPT BACKUP WEB APP
  * ==============================================================================
  * 
- * Instructions for Setup:
- * 1. Open Google Sheets (https://sheets.new) and create a new Spreadsheet.
- *    Name it e.g. "Kazi Agrotech - Cloud Database Backup".
- * 2. Click on "Extensions" > "Apps Script".
- * 3. Delete any code in the editor and paste this entire file content.
- * 4. (Optional) Set your API_TOKEN below to secure your endpoint.
+ * Security & Setup Instructions:
+ * 1. Open your private Google Sheet (https://sheets.new).
+ *    Make sure Sheet Sharing is set to "Restricted" (Only your account has access).
+ * 2. Click "Extensions" > "Apps Script".
+ * 3. Delete all code in the editor and paste this entire file content.
+ * 4. To set your secret API_TOKEN securely without hardcoding:
+ *    - Click "Project Settings" (gear icon ⚙️ on the left menu).
+ *    - Scroll to "Script Properties" > click "Edit script properties" > "Add script property".
+ *    - Property: API_TOKEN
+ *    - Value: <Your-Secret-Token-Here> (e.g. a strong random password or UUID)
+ *    - Click "Save script properties".
+ *    (Alternatively, you can assign API_TOKEN_FALLBACK below if not using Script Properties).
  * 5. Click "Deploy" > "New deployment".
- * 6. Select type: "Web app".
- *    - Description: "Kazi Agrotech Backup Endpoint"
- *    - Execute as: "Me" (your Google account)
- *    - Who has access: "Anyone" (allows the Android app to POST data without OAuth login)
- * 7. Click "Deploy" and Authorize access when prompted.
- * 8. Copy the generated "Web App URL" (starts with https://script.google.com/macros/s/...)
- * 9. Paste this URL into the Kazi Agrotech app under Settings > Cloud Backup.
+ *    - Select type: "Web app".
+ *    - Description: "Kazi Agrotech Secure Backup"
+ *    - Execute as: "Me" (your Google account — writes to your private sheet)
+ *    - Who has access: "Anyone" (allows the Android app to send authenticated requests)
+ * 6. Click "Deploy" and Authorize access.
+ * 7. Copy the "Web App URL" (starts with https://script.google.com/macros/s/...)
+ * 8. In Kazi Agrotech App: Go to Settings > Cloud Backup, paste the Web App URL and API Token.
  * ==============================================================================
  */
 
-// Optional secret token for extra security. Leave empty ("") if you don't want token check.
-var API_TOKEN = "";
+// Fallback token if not configured in Script Properties (can be left empty if using Script Properties)
+var API_TOKEN_FALLBACK = "";
+
+// Security Configuration
+var MAX_REQUEST_AGE_MS = 5 * 60 * 1000; // 5 minutes validity window
+var REQ_CACHE_TTL_SEC = 600; // 10 minutes cache to prevent replay attacks
+var RATE_LIMIT_SEC = 3; // Minimum 3 seconds between requests
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  // Wait up to 30 seconds for other executions to finish
+  // Wait up to 30 seconds for lock to avoid concurrent write conflicts
   if (!lock.tryLock(30000)) {
-    return createJsonResponse(false, "Server busy. Please try again later.", 0);
+    return createSecureResponse(false, "Backup service temporarily unavailable (Server busy)", 0, 503);
   }
 
   try {
+    // 1. Basic Request Validation
     if (!e || !e.postData || !e.postData.contents) {
-      return createJsonResponse(false, "No payload received in request", 0);
+      return createSecureResponse(false, "Invalid request: No payload received", 0, 400);
     }
 
+    // 2. Parse JSON Payload safely
     var payload;
     try {
       payload = JSON.parse(e.postData.contents);
     } catch (parseError) {
-      return createJsonResponse(false, "Invalid JSON payload: " + parseError.message, 0);
+      return createSecureResponse(false, "Invalid request: Malformed JSON payload", 0, 400);
     }
 
-    // Token check if configured
-    if (API_TOKEN && API_TOKEN.trim() !== "") {
-      var reqToken = payload.api_token || (e.parameter ? e.parameter.token : "");
-      if (reqToken !== API_TOKEN) {
-        return createJsonResponse(false, "Unauthorized: Invalid API Token", 0);
+    // 3. Security: Authentication / Secret Token Check
+    var configuredToken = getSecretApiToken();
+    if (configuredToken && configuredToken.trim() !== "") {
+      var reqToken = extractBearerToken(e, payload);
+      if (!reqToken || reqToken !== configuredToken) {
+        // Log failed authentication without exposing secrets
+        logSecurityEvent("AUTH_FAILED", "Unauthorized backup request attempted");
+        return createSecureResponse(false, "Unauthorized: Invalid or missing API Token", 0, 401);
       }
     }
 
+    // 4. Security: Timestamp & Expiry Validation (Replay Prevention)
+    var reqTimestamp = Number(payload.timestamp);
+    if (!reqTimestamp || isNaN(reqTimestamp)) {
+      return createSecureResponse(false, "Invalid request: Missing timestamp", 0, 400);
+    }
+    var currentServerTime = Date.now();
+    var timeDifference = Math.abs(currentServerTime - reqTimestamp);
+    if (timeDifference > MAX_REQUEST_AGE_MS) {
+      logSecurityEvent("EXPIRED_REQUEST", "Rejected request with timestamp diff: " + Math.round(timeDifference / 1000) + "s");
+      return createSecureResponse(false, "Invalid request: Expired timestamp window (> 5 minutes)", 0, 400);
+    }
+
+    // 5. Security: Unique Request ID Deduplication (Replay Protection)
+    var requestId = payload.request_id ? String(payload.request_id).trim() : "";
+    if (!requestId || requestId.length < 8) {
+      return createSecureResponse(false, "Invalid request: Missing or invalid request_id", 0, 400);
+    }
+
+    var cache = CacheService.getScriptCache();
+    var cacheKey = "REQ_" + requestId;
+    if (cache.get(cacheKey) !== null) {
+      logSecurityEvent("DUPLICATE_REQUEST", "Rejected duplicate request_id: " + requestId.substring(0, 8) + "...");
+      return createSecureResponse(false, "Duplicate request detected: This request was already processed", 0, 409);
+    }
+
+    // 6. Security: Basic Rate Limiting
+    var rateLimitKey = "RATE_LIMIT_GLOBAL";
+    if (cache.get(rateLimitKey) !== null) {
+      return createSecureResponse(false, "Rate limit exceeded. Please wait a few seconds before retrying.", 0, 429);
+    }
+    // Set rate limit flag for 3 seconds
+    try { cache.put(rateLimitKey, "1", RATE_LIMIT_SEC); } catch (cErr) {}
+
+    // Mark request_id as used in cache for 10 minutes
+    try { cache.put(cacheKey, "PROCESSED", REQ_CACHE_TTL_SEC); } catch (cErr) {}
+
+    // 7. Security: Schema & Data Structure Validation
+    if (!payload.data || typeof payload.data !== 'object') {
+      return createSecureResponse(false, "Invalid request: Missing data payload", 0, 400);
+    }
+
+    // 8. Execute Database Sync to Private Google Sheet
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var data = payload.data || {};
     var processedCount = 0;
 
-    // 1. Sync Farm Profile
-    if (data.farm_profile) {
+    // A. Sync Farm Profile
+    if (data.farm_profile && typeof data.farm_profile === 'object') {
       syncFarmProfile(ss, data.farm_profile);
       processedCount++;
     }
 
-    // 2. Sync Daily Reports (Upsert)
+    // B. Sync Daily Reports (Upsert)
     if (data.daily_reports && Array.isArray(data.daily_reports)) {
       processedCount += syncDailyReports(ss, data.daily_reports);
     }
 
-    // 3. Sync Monthly Expenses (Upsert)
+    // C. Sync Monthly Expenses (Upsert)
     if (data.monthly_expenses && Array.isArray(data.monthly_expenses)) {
       processedCount += syncMonthlyExpenses(ss, data.monthly_expenses);
     }
 
-    // 4. Sync Users (Upsert)
+    // D. Sync Users (Upsert)
     if (data.users && Array.isArray(data.users)) {
       processedCount += syncUsers(ss, data.users);
     }
 
-    // 5. Sync Role Permissions (Upsert)
+    // E. Sync Role Permissions (Upsert)
     if (data.role_permissions && typeof data.role_permissions === 'object') {
       processedCount += syncRolePermissions(ss, data.role_permissions);
     }
 
-    // 6. Log Backup Activity
-    logBackupActivity(ss, payload, processedCount, "SUCCESS", "Backup completed successfully");
+    // 9. Log Activity (Securely without logging tokens or personal payload)
+    logBackupActivity(ss, payload, processedCount, "SUCCESS", "ক্লাউড ব্যাকআপ সফল হয়েছে");
 
-    return createJsonResponse(true, "ক্লাউড ব্যাকআপ সফল হয়েছে", processedCount);
+    return createSecureResponse(true, "ক্লাউড ব্যাকআপ সফল হয়েছে", processedCount, 200);
 
   } catch (error) {
     try {
       var ssErr = SpreadsheetApp.getActiveSpreadsheet();
-      logBackupActivity(ssErr, payload || {}, 0, "ERROR", error.toString());
+      logBackupActivity(ssErr, payload || {}, 0, "ERROR", "Internal execution error");
     } catch (logErr) {}
-    return createJsonResponse(false, "ব্যাকআপ সম্পন্ন হয়নি: " + error.message, 0);
+    // Generic error message to prevent leaking internal stack trace details
+    return createSecureResponse(false, "ব্যাকআপ সম্পন্ন হয়নি: সার্ভার অভ্যন্তরীণ ত্রুটি", 0, 500);
   } finally {
     lock.releaseLock();
   }
 }
 
+/**
+ * Disallow public read access to data.
+ */
 function doGet(e) {
-  return createJsonResponse(true, "Kazi Agrotech Google Sheets Backup Web App is online and healthy.", 0);
+  return createSecureResponse(true, "Kazi Agrotech Secure Cloud Backup Web App is online.", 0, 200);
 }
 
-function createJsonResponse(success, message, count) {
+// -------------------------------------------------------------
+// SECURITY & AUTHENTICATION HELPERS
+// -------------------------------------------------------------
+
+function getSecretApiToken() {
+  try {
+    var token = PropertiesService.getScriptProperties().getProperty("API_TOKEN");
+    if (token && token.trim() !== "") {
+      return token.trim();
+    }
+  } catch (e) {}
+  return API_TOKEN_FALLBACK.trim();
+}
+
+function extractBearerToken(e, payload) {
+  // Check Authorization header (Authorization: Bearer <TOKEN>)
+  if (e && e.headers) {
+    var authHeader = e.headers["Authorization"] || e.headers["authorization"];
+    if (authHeader && typeof authHeader === "string") {
+      var parts = authHeader.split(" ");
+      if (parts.length === 2 && parts[0].toLowerCase() === "bearer") {
+        return parts[1].trim();
+      }
+      return authHeader.trim();
+    }
+  }
+  // Fallback to payload api_token
+  if (payload && payload.api_token) {
+    return String(payload.api_token).trim();
+  }
+  return "";
+}
+
+function createSecureResponse(success, message, count, statusCode) {
   var output = {
     success: success,
     message: message,
@@ -112,8 +207,14 @@ function createJsonResponse(success, message, count) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function logSecurityEvent(eventType, message) {
+  try {
+    console.warn("[" + eventType + "] " + message);
+  } catch (e) {}
+}
+
 // -------------------------------------------------------------
-// SYNC FUNCTIONS
+// PRIVATE SHEET SYNC FUNCTIONS (UPSERT)
 // -------------------------------------------------------------
 
 function syncFarmProfile(ss, profile) {
@@ -122,13 +223,13 @@ function syncFarmProfile(ss, profile) {
   ]);
 
   var rows = [
-    ["ফার্মের নাম (Farm Name)", profile.farmName || "", new Date()],
-    ["মালিকের নাম (Owner Name)", profile.ownerName || "", new Date()],
-    ["মোবাইল নম্বর (Mobile)", profile.mobileNumber || "", new Date()],
-    ["ঠিকানা (Address)", profile.address || "", new Date()],
-    ["লোগো ইমোজি (Logo Emoji)", profile.logoEmoji || "🐔", new Date()],
-    ["প্রারম্ভিক স্টক (Initial Stock)", profile.initialOpeningStock || 0, new Date()],
-    ["প্রারম্ভিক তারিখ (Initial Date)", profile.initialOpeningDate || "", new Date()],
+    ["ফার্মের নাম (Farm Name)", sanitizeString(profile.farmName), new Date()],
+    ["মালিকের নাম (Owner Name)", sanitizeString(profile.ownerName), new Date()],
+    ["মোবাইল নম্বর (Mobile)", sanitizeString(profile.mobileNumber), new Date()],
+    ["ঠিকানা (Address)", sanitizeString(profile.address), new Date()],
+    ["লোগো ইমোজি (Logo Emoji)", sanitizeString(profile.logoEmoji || "🐔"), new Date()],
+    ["প্রারম্ভিক স্টক (Initial Stock)", Number(profile.initialOpeningStock) || 0, new Date()],
+    ["প্রারম্ভিক তারিখ (Initial Date)", sanitizeString(profile.initialOpeningDate), new Date()],
     ["ডার্ক মোড (Dark Mode)", profile.isDarkMode ? "ON" : "OFF", new Date()],
     ["স্বয়ংক্রিয় ব্যাকআপ (Auto Backup)", profile.autoBackup ? "ON" : "OFF", new Date()]
   ];
@@ -147,29 +248,31 @@ function syncDailyReports(ss, reports) {
   var sheet = getOrCreateSheet(ss, "Daily Reports (দৈনিক রিপোর্ট)", headers);
   if (reports.length === 0) return 0;
 
-  var idColIndex = 1; // 1-indexed
+  var idColIndex = 1;
   var existingMap = getRowIndexMap(sheet, idColIndex);
   var appendRows = [];
   var now = new Date();
 
   reports.forEach(function(r) {
-    var idStr = String(r.id || r.date);
+    var idStr = String(r.id || r.date || "").trim();
+    if (!idStr) return;
+
     var rowValues = [
       idStr,
-      r.date || "",
-      r.currentBirds || 0,
-      r.deadBirds || 0,
-      r.eggProduction || 0,
-      r.eggSold || 0,
-      r.eggPrice || 0,
-      r.totalSale || 0,
-      r.medicineCost || 0,
-      r.currentStock || 0,
-      r.otherStockIn || 0,
-      r.otherStockOut || 0,
-      r.stockAdjustment || 0,
-      r.adjustmentReason || "",
-      r.remarks || "",
+      sanitizeString(r.date),
+      Number(r.currentBirds) || 0,
+      Number(r.deadBirds) || 0,
+      Number(r.eggProduction) || 0,
+      Number(r.eggSold) || 0,
+      Number(r.eggPrice) || 0,
+      Number(r.totalSale) || 0,
+      Number(r.medicineCost) || 0,
+      Number(r.currentStock) || 0,
+      Number(r.otherStockIn) || 0,
+      Number(r.otherStockOut) || 0,
+      Number(r.stockAdjustment) || 0,
+      sanitizeString(r.adjustmentReason),
+      sanitizeString(r.remarks),
       now
     ];
 
@@ -202,20 +305,22 @@ function syncMonthlyExpenses(ss, expenses) {
   var now = new Date();
 
   expenses.forEach(function(e) {
-    var idStr = String(e.id || e.date);
+    var idStr = String(e.id || e.date || "").trim();
+    if (!idStr) return;
+
     var rowValues = [
       idStr,
-      e.date || "",
-      e.feedCost || 0,
-      e.medicineCost || 0,
-      e.staffMarket || 0,
-      e.staffSalary || 0,
-      e.vehicleRepair || 0,
-      e.assets || 0,
-      e.electricityBill || 0,
-      e.otherExpense || 0,
-      e.totalExpense || 0,
-      e.remarks || "",
+      sanitizeString(e.date),
+      Number(e.feedCost) || 0,
+      Number(e.medicineCost) || 0,
+      Number(e.staffMarket) || 0,
+      Number(e.staffSalary) || 0,
+      Number(e.vehicleRepair) || 0,
+      Number(e.assets) || 0,
+      Number(e.electricityBill) || 0,
+      Number(e.otherExpense) || 0,
+      Number(e.totalExpense) || 0,
+      sanitizeString(e.remarks),
       now
     ];
 
@@ -246,14 +351,16 @@ function syncUsers(ss, users) {
   var now = new Date();
 
   users.forEach(function(u) {
-    var idStr = String(u.id || u.email);
+    var idStr = String(u.id || u.email || "").trim();
+    if (!idStr) return;
+
     var regDateStr = u.registeredDate ? new Date(u.registeredDate).toLocaleString() : "";
     var rowValues = [
       idStr,
-      u.username || "",
-      u.email || "",
-      u.phone || "",
-      u.role || "WORKER",
+      sanitizeString(u.username),
+      sanitizeString(u.email),
+      sanitizeString(u.phone),
+      sanitizeString(u.role || "WORKER"),
       u.isApproved ? "YES (অনুমোদিত)" : "NO (পেন্ডিং)",
       regDateStr,
       now
@@ -288,10 +395,12 @@ function syncRolePermissions(ss, rolePermsMap) {
 
   keys.forEach(function(k) {
     var p = rolePermsMap[k];
-    var idStr = String(p.roleKey || k).toUpperCase();
+    var idStr = String(p.roleKey || k).toUpperCase().trim();
+    if (!idStr) return;
+
     var rowValues = [
       idStr,
-      p.roleDisplayName || idStr,
+      sanitizeString(p.roleDisplayName || idStr),
       p.dailyReportView ? "TRUE" : "FALSE",
       p.dailyReportAdd ? "TRUE" : "FALSE",
       p.userManagementView ? "TRUE" : "FALSE",
@@ -319,24 +428,26 @@ function syncRolePermissions(ss, rolePermsMap) {
 function logBackupActivity(ss, payload, recordCount, status, message) {
   var headers = [
     "Timestamp (সময়)", "Status (স্ট্যাটাস)", "Records Synced", "App Version",
-    "Schema Version", "Triggered By", "Message / Note"
+    "Schema Version", "Request ID", "Triggered By", "Message / Note"
   ];
   var sheet = getOrCreateSheet(ss, "Backup Log (লগ)", headers);
   var now = new Date();
+  var reqId = payload.request_id ? String(payload.request_id).substring(0, 13) + "..." : "-";
   var row = [
     now,
     status,
     recordCount,
-    payload.app_version || "1.0.0",
-    payload.backup_schema_version || 1,
-    payload.user_email || "System/Auto",
-    message
+    sanitizeString(payload.app_version || "1.0.0"),
+    Number(payload.backup_schema_version) || 1,
+    reqId,
+    sanitizeString(payload.user_email || "Auto/Worker"),
+    sanitizeString(message)
   ];
   sheet.appendRow(row);
 }
 
 // -------------------------------------------------------------
-// HELPER FUNCTIONS
+// HELPER UTILITIES
 // -------------------------------------------------------------
 
 function getOrCreateSheet(ss, sheetName, headers) {
@@ -360,10 +471,15 @@ function getRowIndexMap(sheet, idColIndex) {
 
   var ids = sheet.getRange(2, idColIndex, lastRow - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
-    var val = String(ids[i][0]);
+    var val = String(ids[i][0]).trim();
     if (val !== "") {
-      map[val] = i + 2; // Row numbers are 1-based and row 1 is header
+      map[val] = i + 2;
     }
   }
   return map;
+}
+
+function sanitizeString(val) {
+  if (val === null || val === undefined) return "";
+  return String(val).trim();
 }
