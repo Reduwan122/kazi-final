@@ -41,9 +41,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Upload
-import com.example.BuildConfig
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -618,21 +616,6 @@ fun SettingsScreen(
                         }
                     )
 
-                    // Google Drive Backup & Restore
-                    val googleAccountEmail by viewModel.googleAccountEmail.collectAsState()
-                    val lastBackupTimestamp by viewModel.lastBackupTimestamp.collectAsState()
-
-                    SettingsRowItem(
-                        icon = Icons.Default.CloudUpload,
-                        title = "গুগল ড্রাইভ ব্যাকআপ ও রিস্টোর",
-                        subtitle = if (googleAccountEmail != null) {
-                            "কানেক্টেড ($googleAccountEmail) • ${if (lastBackupTimestamp > 0) "সর্বশেষ: " + viewModel.driveBackupManager.formatDateFromMillis(lastBackupTimestamp) else "ব্যাকআপ নেওয়া হয়নি"}"
-                        } else {
-                            "গুগল ড্রাইভ ক্লাউড ব্যাকআপ, এনক্রিপশন ও রিস্টোর"
-                        },
-                        onClick = onNavigateToBackupRestore
-                    )
-
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                     // Security
@@ -687,29 +670,11 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-                    // App Version & Update
-                    SettingsRowItem(
-                        icon = Icons.Default.SystemUpdate,
-                        title = "অ্যাপ সংস্করণ ও আপডেট",
-                        subtitle = "বর্তমান সংস্করণ: v${BuildConfig.VERSION_NAME} • আপডেট চেক করুন",
-                        onClick = {
-                            haptics.tap()
-                            SnackbarController.showMessage("সর্বশেষ সংস্করণের তথ্য যাচাই করা হচ্ছে...")
-                            viewModel.checkForUpdates(isManual = true) { hasUpdate, msg ->
-                                if (!hasUpdate) {
-                                    SnackbarController.showMessage(msg ?: "আপনি সর্বশেষ সংস্করণ ব্যবহার করছেন। (v${BuildConfig.VERSION_NAME})")
-                                }
-                            }
-                        }
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
                     // About App
                     SettingsRowItem(
                         icon = Icons.Default.Info,
                         title = "অ্যাপ পরিচিতি",
-                        subtitle = "কাজী এগ্রোটেক সংস্করণ v${BuildConfig.VERSION_NAME}",
+                        subtitle = "কাজী এগ্রোটেক সংস্করণ ১.০.০",
                         onClick = { showAboutDialog = true }
                     )
                 }
@@ -1151,7 +1116,7 @@ fun SettingsScreen(
     }
 
     // Initial Baseline Stock Setup Dialog (Admin Only)
-    if (showInitialStockDialog && isAdmin) {
+    if (showInitialStockDialog) {
         var stockInput by remember { mutableStateOf(if (farmProfile.initialOpeningStock > 0) farmProfile.initialOpeningStock.toString() else "") }
         var dateInput by remember { mutableStateOf(farmProfile.initialOpeningDate) }
 
@@ -1234,88 +1199,6 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showInitialStockDialog = false }) {
                     Text("বাতিল")
-                }
-            }
-        )
-    }
-
-    // About App Dialog
-    if (showAboutDialog) {
-        AlertDialog(
-            onDismissRequest = { showAboutDialog = false },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            },
-            title = {
-                Text(
-                    text = "কাজী এগ্রোটেক",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "সংস্করণ: v${BuildConfig.VERSION_NAME} (বিল্ড ${BuildConfig.VERSION_CODE})",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    )
-
-                    Text(
-                        text = "কাজী এগ্রোটেক একটি আধুনিক, সুরক্ষিত ও ক্লাউড-সংযুক্ত খামার ব্যবস্থাপনা অ্যাপ্লিকেশন। এটি পোল্ট্রি খামারের দৈনিক ডিম সংগ্রহ, বিক্রয়, সমাপনী স্টক, মাসিক ব্যয় হিসাব এবং বহু-ব্যবহারকারী রোল পারমিশন স্বয়ংক্রিয়ভাবে পরিচালনা করে।",
-                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                    Text(
-                        text = "• ক্লাউড সিঙ্ক: ফায়ারবেস রিয়েলটাইম ডাটাবেস\n• ড্রাইভ ব্যাকআপ: গুগল ড্রাইভ ব্যাকআপ সমর্থন\n• অটো-আপডেট: গিটহাব ক্লাউড রিলিজ ও ভেরিফিকেশন",
-                        style = MaterialTheme.typography.labelSmall.copy(lineHeight = 16.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showAboutDialog = false
-                        viewModel.checkForUpdates(isManual = true) { hasUpdate, msg ->
-                            if (!hasUpdate) {
-                                SnackbarController.showMessage(msg ?: "আপনি সর্বশেষ সংস্করণ ব্যবহার করছেন। (v${BuildConfig.VERSION_NAME})")
-                            }
-                        }
-                    }
-                ) {
-                    Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("আপডেট খুঁজুন")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAboutDialog = false }) {
-                    Text("বন্ধ করুন")
                 }
             }
         )

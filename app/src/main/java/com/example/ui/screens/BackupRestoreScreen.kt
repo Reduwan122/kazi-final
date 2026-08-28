@@ -1,9 +1,10 @@
-﻿package com.example.ui.screens
+package com.example.ui.screens
 
-import android.util.Log
+import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,14 +22,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddModerator
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Schedule
@@ -48,6 +53,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -67,16 +73,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.backup.BackupProgressState
 import com.example.data.backup.DriveFileInfo
+import com.example.ui.components.BanglaNumberFormatter
 import com.example.ui.components.MainTopAppBar
 import com.example.ui.components.SnackbarController
 import com.example.ui.components.rememberHaptics
 import com.example.ui.viewmodel.PoultryViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.common.api.ApiException
 
 @Composable
 fun BackupRestoreScreen(
@@ -85,65 +92,45 @@ fun BackupRestoreScreen(
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
-    val TAG = "BackupRestoreScreen"
 
     val googleAccountEmail by viewModel.googleAccountEmail.collectAsState()
     val isConnected = googleAccountEmail != null
     val progressState by viewModel.backupProgressState.collectAsState()
     val driveBackups by viewModel.driveBackupsList.collectAsState()
+    val lastBackupTimestamp by viewModel.lastBackupTimestamp.collectAsState()
     val isAutoBackupEnabled by viewModel.isAutoBackupEnabled.collectAsState()
     val autoBackupFrequency by viewModel.autoBackupFrequency.collectAsState()
 
-    var showRestoreConfirmDialog by remember { mutableStateOf(false) }
+    var showPasswordModalForBackup by remember { mutableStateOf(false) }
+    var backupPassword by remember { mutableStateOf("") }
+    var confirmBackupPassword by remember { mutableStateOf("") }
+    var enableEncryption by remember { mutableStateOf(false) }
+
+    var showRestoreSelectDialog by remember { mutableStateOf(false) }
     var selectedBackupForRestore by remember { mutableStateOf<DriveFileInfo?>(null) }
+    var showRestoreConfirmDialog by remember { mutableStateOf(false) }
     var showPasswordModalForRestore by remember { mutableStateOf(false) }
     var restorePassword by remember { mutableStateOf("") }
+
     var deleteConfirmBackup by remember { mutableStateOf<DriveFileInfo?>(null) }
 
-    // Google Sign-In Launcher
+    // Google Sign-In Activity Result Launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val data = result.data
-        Log.d(TAG, "Sign-in resultCode=${result.resultCode} dataNull=${data == null}")
-        if (data != null) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
-                val account = task.getResult(ApiException::class.java)
-                Log.d(TAG, "Sign-in SUCCESS email=${account?.email}")
-                viewModel.refreshGoogleAccountStatus()
-                SnackbarController.showMessage("à¦—à§à¦—à¦² à¦¡à§à¦°à¦¾à¦‡à¦­ à¦¸à¦‚à¦¯à§à¦•à§à¦¤ à¦¹à¦¯à¦¼à§‡à¦›à§‡: ${account?.email ?: ""}")
-            } catch (e: ApiException) {
-                Log.e(TAG, "Sign-in FAILED statusCode=${e.statusCode} message=${e.message}")
-                val errMsg = when (e.statusCode) {
-                    10 -> "à¦¡à§‡à¦­à§‡à¦²à¦ªà¦¾à¦° à¦•à¦¨à¦«à¦¿à¦— à¦¤à§à¦°à§à¦Ÿà¦¿ (Error 10) â€” SHA-1 à¦®à¦¿à¦²à¦›à§‡ à¦¨à¦¾"
-                    12500 -> "Google Play Services à¦¸à¦¾à¦‡à¦¨-à¦‡à¦¨ à¦¬à¦¾à¦¤à¦¿à¦² à¦•à¦°à§‡à¦›à§‡"
-                    12501 -> "à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦°à¦•à¦¾à¦°à§€ à¦¸à¦¾à¦‡à¦¨-à¦‡à¦¨ à¦¬à¦¾à¦¤à¦¿à¦² à¦•à¦°à§‡à¦›à§‡à¦¨"
-                    12502 -> "à¦¸à¦¾à¦‡à¦¨-à¦‡à¦¨ à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨à§‡ à¦šà¦²à¦›à§‡, à¦…à¦ªà§‡à¦•à§à¦·à¦¾ à¦•à¦°à§à¦¨"
-                    7 -> "à¦¨à§‡à¦Ÿà¦“à¦¯à¦¼à¦¾à¦°à§à¦• à¦¸à¦‚à¦¯à§‹à¦— à¦¨à§‡à¦‡"
-                    else -> "à¦¸à¦¾à¦‡à¦¨-à¦‡à¦¨ à¦¬à§à¦¯à¦°à§à¦¥ à¦¹à¦¯à¦¼à§‡à¦›à§‡ (à¦•à§‹à¦¡: ${e.statusCode})"
-                }
-                SnackbarController.showError(errMsg)
-            } catch (e: Exception) {
-                Log.e(TAG, "Sign-in EXCEPTION ${e.message}")
-                // Check if already signed in
-                val last = GoogleSignIn.getLastSignedInAccount(context)
-                if (last != null) {
+                val account = task.result
+                if (account != null) {
                     viewModel.refreshGoogleAccountStatus()
-                    SnackbarController.showMessage("à¦¸à¦‚à¦¯à§à¦•à§à¦¤: ${last.email}")
-                } else {
-                    SnackbarController.showError("à¦¸à¦¾à¦‡à¦¨-à¦‡à¦¨ à¦¬à§à¦¯à¦°à§à¦¥: ${e.message}")
+                    SnackbarController.showMessage("গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে (${account.email})")
                 }
+            } catch (e: Exception) {
+                SnackbarController.showError("গুগল একাউন্ট কানেক্ট ব্যর্থ: ${e.message}")
             }
         } else {
-            val last = GoogleSignIn.getLastSignedInAccount(context)
-            if (last != null) {
-                viewModel.refreshGoogleAccountStatus()
-                SnackbarController.showMessage("à¦¸à¦‚à¦¯à§à¦•à§à¦¤: ${last.email}")
-            } else {
-                Log.w(TAG, "Sign-in returned null data")
-                SnackbarController.showError("à¦¸à¦¾à¦‡à¦¨-à¦‡à¦¨ à¦¬à¦¾à¦¤à¦¿à¦² à¦¹à¦¯à¦¼à§‡à¦›à§‡")
-            }
+            SnackbarController.showError("গুগল সাইন-ইন বাতিল করা হয়েছে")
         }
     }
 
@@ -154,7 +141,7 @@ fun BackupRestoreScreen(
     Scaffold(
         topBar = {
             MainTopAppBar(
-                title = "à¦—à§à¦—à¦² à¦¡à§à¦°à¦¾à¦‡à¦­ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª",
+                title = "গুগল ড্রাইভ ব্যাকআপ ও রিস্টোর",
                 isRootScreen = false,
                 onBackClick = onBack
             )
@@ -170,148 +157,123 @@ fun BackupRestoreScreen(
                 .testTag("backup_restore_screen"),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-            // 1. Google Drive Connection Card
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            // ══════════════════════════════════════════════════════════════
+            // 1. Google Drive Account Connection Card
+            // ══════════════════════════════════════════════════════════════
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.5.dp,
-                    if (isConnected) Color(0xFF4CAF50).copy(alpha = 0.5f)
-                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                )
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isConnected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    else MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Header
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isConnected) Color(0xFFE8F5E9)
-                                    else MaterialTheme.colorScheme.surfaceContainerHigh
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (isConnected) Icons.Default.CloudDone else Icons.Default.CloudOff,
-                                contentDescription = null,
-                                tint = if (isConnected) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = "à¦—à§à¦—à¦² à¦¡à§à¦°à¦¾à¦‡à¦­",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = if (isConnected) "à¦¸à¦‚à¦¯à§à¦•à§à¦¤" else "à¦¸à¦‚à¦¯à§à¦•à§à¦¤ à¦¨à¦¯à¦¼",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isConnected) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    // Account info (if connected)
-                    if (isConnected) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFE8F5E9).copy(alpha = 0.6f))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isConnected) Color(0xFF4CAF50).copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainerHigh),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Default.Email,
+                                    imageVector = if (isConnected) Icons.Default.CloudDone else Icons.Default.CloudOff,
                                     contentDescription = null,
-                                    tint = Color(0xFF2E7D32),
-                                    modifier = Modifier.size(16.dp)
+                                    tint = if (isConnected) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(22.dp)
                                 )
-                                Spacer(Modifier.width(8.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
                                 Text(
-                                    text = googleAccountEmail ?: "",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = Color(0xFF1B5E20)
+                                    text = "গুগল ড্রাইভ অ্যাকাউন্ট",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (isConnected) "কানেক্টেড: $googleAccountEmail" else "কোনো অ্যাকাউন্ট যুক্ত নেই",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isConnected) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        // Action buttons when connected
-                        Button(
-                            onClick = {
-                                haptics.tap()
-                                viewModel.performManualBackup()
-                            },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D631B)),
-                            enabled = progressState !is BackupProgressState.Uploading &&
-                                      progressState !is BackupProgressState.Connecting &&
-                                      progressState !is BackupProgressState.Preparing
-                        ) {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("à¦à¦–à¦¨à¦‡ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦•à¦°à§à¦¨", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        if (isConnected) {
+                            IconButton(
+                                onClick = { viewModel.fetchDriveBackupsList() },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
+                    }
 
-                        OutlinedButton(
-                            onClick = {
-                                haptics.tap()
-                                viewModel.disconnectGoogleAccount()
-                            },
-                            modifier = Modifier.fillMaxWidth().height(44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    if (isConnected) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("à¦¡à¦¿à¦¸à¦•à¦¾à¦¨à§‡à¦•à§à¦Ÿ à¦•à¦°à§à¦¨", fontWeight = FontWeight.SemiBold)
-                        }
+                            Text(
+                                text = "ফোল্ডার: ${viewModel.driveBackupManager.FOLDER_NAME}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
 
+                            OutlinedButton(
+                                onClick = {
+                                    haptics.tap()
+                                    viewModel.disconnectGoogleAccount()
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("ডিসকানেক্ট করুন", fontSize = 12.sp)
+                            }
+                        }
                     } else {
-                        // Connect button when not connected
                         Button(
                             onClick = {
                                 haptics.tap()
                                 val client = viewModel.driveBackupManager.getGoogleSignInClient()
-                                // Sign out first to show account picker
-                                client.signOut().addOnCompleteListener {
-                                    googleSignInLauncher.launch(client.signInIntent)
-                                }
+                                googleSignInLauncher.launch(client.signInIntent)
                             },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(46.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text("à¦—à§à¦—à¦² à¦…à§à¦¯à¦¾à¦•à¦¾à¦‰à¦¨à§à¦Ÿ à¦¦à¦¿à¦¯à¦¼à§‡ à¦•à¦¾à¦¨à§‡à¦•à§à¦Ÿ à¦•à¦°à§à¦¨", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("গুগল ড্রাইভ কানেক্ট করুন", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-            // 2. Progress Banner
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            // ══════════════════════════════════════════════════════════════
+            // 2. Live Progress Banner (if active)
+            // ══════════════════════════════════════════════════════════════
             when (val state = progressState) {
                 is BackupProgressState.Connecting,
                 is BackupProgressState.Preparing,
@@ -324,8 +286,9 @@ fun BackupRestoreScreen(
                         is BackupProgressState.Uploading -> state.stepMessage
                         is BackupProgressState.Downloading -> state.stepMessage
                         is BackupProgressState.Restoring -> state.stepMessage
-                        else -> "à¦ªà§à¦°à¦•à§à¦°à¦¿à¦¯à¦¼à¦¾à¦§à§€à¦¨..."
+                        else -> "প্রক্রিয়াধীন..."
                     }
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
@@ -392,191 +355,449 @@ fun BackupRestoreScreen(
                 is BackupProgressState.Idle -> {}
             }
 
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-            // 3. Auto Backup Settings (only when connected)
-            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-            if (isConnected) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            // ══════════════════════════════════════════════════════════════
+            // 3. Manual Backup Card
+            // ══════════════════════════════════════════════════════════════
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Schedule,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = "à¦¸à§à¦¬à¦¯à¦¼à¦‚à¦•à§à¦°à¦¿à¦¯à¦¼ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                    Text(
-                                        text = "à¦¬à§à¦¯à¦¾à¦•à¦—à§à¦°à¦¾à¦‰à¦¨à§à¦¡à§‡ à¦•à§à¦²à¦¾à¦‰à¦¡à§‡ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦¹à¦¬à§‡",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            Switch(
-                                checked = isAutoBackupEnabled,
-                                onCheckedChange = { enabled ->
-                                    haptics.tap()
-                                    viewModel.updateAutoBackupSettings(enabled, autoBackupFrequency)
-                                },
-                                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = "ম্যানুয়াল ব্যাকআপ",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("সর্বশেষ ব্যাকআপ:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = if (lastBackupTimestamp > 0L) {
+                                "${viewModel.driveBackupManager.formatDateFromMillis(lastBackupTimestamp)} • ${viewModel.driveBackupManager.formatTimeFromMillis(lastBackupTimestamp)}"
+                            } else "কখনও নেওয়া হয়নি",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Optional Encryption Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = if (enableEncryption) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "পাসওয়ার্ড দিয়ে এনক্রিপ্ট করুন (AES-256)",
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
 
-                        if (isAutoBackupEnabled) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                            Text(
-                                text = "à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦«à§à¦°à¦¿à¦•à§‹à¦¯à¦¼à§‡à¦¨à§à¦¸à¦¿:",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { viewModel.updateAutoBackupSettings(true, "DAILY") }
-                                ) {
-                                    RadioButton(
-                                        selected = autoBackupFrequency == "DAILY",
-                                        onClick = { viewModel.updateAutoBackupSettings(true, "DAILY") }
-                                    )
-                                    Text("à¦ªà§à¦°à¦¤à¦¿à¦¦à¦¿à¦¨", style = MaterialTheme.typography.bodySmall)
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { viewModel.updateAutoBackupSettings(true, "WEEKLY") }
-                                ) {
-                                    RadioButton(
-                                        selected = autoBackupFrequency == "WEEKLY",
-                                        onClick = { viewModel.updateAutoBackupSettings(true, "WEEKLY") }
-                                    )
-                                    Text("à¦¸à¦¾à¦ªà§à¦¤à¦¾à¦¹à¦¿à¦•", style = MaterialTheme.typography.bodySmall)
-                                }
+                        Switch(
+                            checked = enableEncryption,
+                            onCheckedChange = { enableEncryption = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            haptics.tap()
+                            if (enableEncryption) {
+                                showPasswordModalForBackup = true
+                            } else {
+                                viewModel.performManualBackup(password = null)
                             }
-                        }
+                        },
+                        enabled = isConnected,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("এখনই ব্যাকআপ নিন", fontWeight = FontWeight.Bold)
                     }
                 }
+            }
 
-                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                // 4. Drive Backup History
-                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            // ══════════════════════════════════════════════════════════════
+            // 4. Automatic Backup Card (WorkManager)
+            // ══════════════════════════════════════════════════════════════
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.History,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.width(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
                                 Text(
-                                    text = "à¦•à§à¦²à¦¾à¦‰à¦¡ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦¹à¦¿à¦¸à§à¦Ÿà§à¦°à¦¿",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    text = "স্বয়ংক্রিয় ব্যাকআপ",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
-                            }
-                            IconButton(onClick = {
-                                haptics.tap()
-                                viewModel.fetchDriveBackupsList()
-                            }) {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    contentDescription = "Refresh",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                        if (driveBackups.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 20.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
                                 Text(
-                                    text = "à¦¡à§à¦°à¦¾à¦‡à¦­à§‡ à¦•à§‹à¦¨à§‹ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦¨à§‡à¦‡",
+                                    text = "ইন্টারনেট থাকলে ব্যাকগ্রাউন্ডে সংরক্ষিত হবে",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        } else {
-                            driveBackups.forEach { file ->
-                                DriveBackupItemRow(
-                                    file = file,
-                                    onRestoreClick = {
-                                        haptics.tap()
-                                        selectedBackupForRestore = file
-                                        showRestoreConfirmDialog = true
-                                    },
-                                    onDeleteClick = {
-                                        haptics.tap()
-                                        deleteConfirmBackup = file
-                                    }
+                        }
+
+                        Switch(
+                            checked = isAutoBackupEnabled,
+                            onCheckedChange = { enabled ->
+                                haptics.tap()
+                                viewModel.updateAutoBackupSettings(enabled, autoBackupFrequency)
+                            },
+                            enabled = isConnected,
+                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
+                        )
+                    }
+
+                    if (isAutoBackupEnabled) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                        Text(
+                            text = "ব্যাকআপ ফ্রিকোয়েন্সি:",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable {
+                                    viewModel.updateAutoBackupSettings(true, "DAILY")
+                                }
+                            ) {
+                                RadioButton(
+                                    selected = autoBackupFrequency == "DAILY",
+                                    onClick = { viewModel.updateAutoBackupSettings(true, "DAILY") }
                                 )
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+                                Text("দৈনিক (Daily)")
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable {
+                                    viewModel.updateAutoBackupSettings(true, "WEEKLY")
+                                }
+                            ) {
+                                RadioButton(
+                                    selected = autoBackupFrequency == "WEEKLY",
+                                    onClick = { viewModel.updateAutoBackupSettings(true, "WEEKLY") }
                                 )
+                                Text("সাপ্তাহিক (Weekly)")
                             }
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            // ══════════════════════════════════════════════════════════════
+            // 5. Restore From Google Drive Card
+            // ══════════════════════════════════════════════════════════════
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "গুগল ড্রাইভ থেকে রিস্টোর",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "গুগল ড্রাইভে সংরক্ষিত যেকোনো পূর্ববর্তী ব্যাকআপ ফাইল থেকে সম্পূর্ণ খামার ডেটা ও স্টক হিসাব রিস্টোর করতে পারেন।",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            haptics.tap()
+                            viewModel.fetchDriveBackupsList()
+                            showRestoreSelectDialog = true
+                        },
+                        enabled = isConnected,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("রিস্টোর ব্যাকআপ নির্বাচন করুন", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // 6. Google Drive Backup History List
+            // ══════════════════════════════════════════════════════════════
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "গুগল ড্রাইভ ব্যাকআপ হিস্ট্রি",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Text(
+                            text = "${BanglaNumberFormatter.formatNumber(driveBackups.size)} টি ফাইল",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    if (driveBackups.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isConnected) "গুগল ড্রাইভে কোনো ব্যাকআপ ফাইল নেই।" else "গুগল ড্রাইভ কানেক্ট করে হিস্ট্রি দেখুন।",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        driveBackups.forEach { file ->
+                            DriveBackupItemRow(
+                                file = file,
+                                onRestoreClick = {
+                                    selectedBackupForRestore = file
+                                    showRestoreConfirmDialog = true
+                                },
+                                onDeleteClick = {
+                                    deleteConfirmBackup = file
+                                }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(30.dp))
         }
     }
 
-    // â”€â”€ Restore Confirmation Dialog â”€â”€
+    // ══════════════════════════════════════════════════════════════
+    // Dialog 1: Password input for manual backup
+    // ══════════════════════════════════════════════════════════════
+    if (showPasswordModalForBackup) {
+        AlertDialog(
+            onDismissRequest = { showPasswordModalForBackup = false },
+            title = { Text("ব্যাকআপ এনক্রিপশন পাসওয়ার্ড") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("এই পাসওয়ার্ডটি সুরক্ষিত রাখুন। রিস্টোর করার সময় এই পাসওয়ার্ডটি প্রয়োজন হবে।", style = MaterialTheme.typography.bodySmall)
+
+                    OutlinedTextField(
+                        value = backupPassword,
+                        onValueChange = { backupPassword = it },
+                        label = { Text("পাসওয়ার্ড") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = confirmBackupPassword,
+                        onValueChange = { confirmBackupPassword = it },
+                        label = { Text("পাসওয়ার্ড নিশ্চিত করুন") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (backupPassword.isBlank()) {
+                            SnackbarController.showError("পাসওয়ার্ড লিখুন")
+                            return@Button
+                        }
+                        if (backupPassword != confirmBackupPassword) {
+                            SnackbarController.showError("পাসওয়ার্ড দুটি মিলছে না")
+                            return@Button
+                        }
+                        showPasswordModalForBackup = false
+                        viewModel.performManualBackup(password = backupPassword)
+                    }
+                ) {
+                    Text("এনক্রিপ্ট করে ব্যাকআপ নিন")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPasswordModalForBackup = false }) {
+                    Text("বাতিল")
+                }
+            }
+        )
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Dialog 2: Select backup to restore
+    // ══════════════════════════════════════════════════════════════
+    if (showRestoreSelectDialog) {
+        AlertDialog(
+            onDismissRequest = { showRestoreSelectDialog = false },
+            title = { Text("রিস্টোর করার ব্যাকআপ নির্বাচন করুন") },
+            text = {
+                if (driveBackups.isEmpty()) {
+                    Text("গুগল ড্রাইভে কোনো ব্যাকআপ ফাইল পাওয়া যায়নি।")
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        driveBackups.forEach { file ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        selectedBackupForRestore = file
+                                        showRestoreSelectDialog = false
+                                        showRestoreConfirmDialog = true
+                                    }
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = file.name,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                        Text(
+                                            text = "${file.formattedDate} • ${file.formattedTime} (${file.formattedSize})",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Icon(Icons.Default.Restore, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRestoreSelectDialog = false }) {
+                    Text("বন্ধ করুন")
+                }
+            }
+        )
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Dialog 3: Confirmation Dialog before Restore
+    // ══════════════════════════════════════════════════════════════
     if (showRestoreConfirmDialog && selectedBackupForRestore != null) {
         val targetFile = selectedBackupForRestore!!
         AlertDialog(
             onDismissRequest = { showRestoreConfirmDialog = false },
-            icon = { Icon(Icons.Default.Restore, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-            title = { Text("à¦¡à§‡à¦Ÿà¦¾ à¦°à¦¿à¦¸à§à¦Ÿà§‹à¦° à¦•à¦°à¦¬à§‡à¦¨?", fontWeight = FontWeight.Bold) },
+            title = { Text("ব্যাকআপ রিস্টোর করবেন?") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("'${targetFile.name}' à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦¥à§‡à¦•à§‡ à¦¡à§‡à¦Ÿà¦¾ à¦°à¦¿à¦¸à§à¦Ÿà§‹à¦° à¦¹à¦¬à§‡à¥¤")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "âš ï¸ à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨ à¦²à§‹à¦•à¦¾à¦² à¦¡à§‡à¦Ÿà¦¾ à¦ªà§à¦°à¦¤à¦¿à¦¸à§à¦¥à¦¾à¦ªà¦¿à¦¤ à¦¹à¦¬à§‡à¥¤",
+                        text = "ফাইল: ${targetFile.name}\nতারিখ: ${targetFile.formattedDate} (${targetFile.formattedTime})",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "⚠️ এই ব্যাকআপটি রিস্টোর করলে বর্তমান খামার ডেটা প্রতিস্থাপিত হবে।\n\nসুরক্ষার জন্য, রিস্টোর শুরুর আগে স্বয়ংক্রিয়ভাবে বর্তমান তথ্যের একটি নিরাপত্তা ব্যাকআপ গুগল ড্রাইভে নেওয়া হবে।",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
@@ -593,31 +814,36 @@ fun BackupRestoreScreen(
                                 }
                             }
                         )
-                    }
-                ) { Text("à¦°à¦¿à¦¸à§à¦Ÿà§‹à¦° à¦•à¦°à§à¦¨") }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("নিশ্চিত ও রিস্টোর করুন")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showRestoreConfirmDialog = false }) { Text("à¦¬à¦¾à¦¤à¦¿à¦²") }
+                TextButton(onClick = { showRestoreConfirmDialog = false }) {
+                    Text("বাতিল")
+                }
             }
         )
     }
 
-    // â”€â”€ Password Dialog for Encrypted Restore â”€â”€
+    // ══════════════════════════════════════════════════════════════
+    // Dialog 4: Password prompt for encrypted restore
+    // ══════════════════════════════════════════════════════════════
     if (showPasswordModalForRestore && selectedBackupForRestore != null) {
         val targetFile = selectedBackupForRestore!!
         AlertDialog(
             onDismissRequest = { showPasswordModalForRestore = false },
-            title = { Text("à¦ªà¦¾à¦¸à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡ à¦²à¦¿à¦–à§à¦¨") },
+            title = { Text("ডিক্রিপশন পাসওয়ার্ড লিখুন") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "à¦¬à§à¦¯à¦¾à¦•à¦†à¦ªà¦Ÿà¦¿ à¦ªà¦¾à¦¸à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡ à¦¦à¦¿à¦¯à¦¼à§‡ à¦¸à§à¦°à¦•à§à¦·à¦¿à¦¤à¥¤ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦¤à§ˆà¦°à¦¿à¦° à¦¸à¦®à¦¯à¦¼à§‡à¦° à¦ªà¦¾à¦¸à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡ à¦²à¦¿à¦–à§à¦¨à¥¤",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("এই ব্যাকআপ ফাইলটি পাসওয়ার্ড দিয়ে সুরক্ষিত। ব্যাকআপ তৈরির সময় প্রদত্ত পাসওয়ার্ডটি লিখুন।", style = MaterialTheme.typography.bodySmall)
+
                     OutlinedTextField(
                         value = restorePassword,
                         onValueChange = { restorePassword = it },
-                        label = { Text("à¦ªà¦¾à¦¸à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡") },
+                        label = { Text("পাসওয়ার্ড") },
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -628,27 +854,38 @@ fun BackupRestoreScreen(
                 Button(
                     onClick = {
                         if (restorePassword.isBlank()) {
-                            SnackbarController.showError("à¦ªà¦¾à¦¸à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡ à¦²à¦¿à¦–à§à¦¨")
+                            SnackbarController.showError("পাসওয়ার্ড লিখুন")
                             return@Button
                         }
                         showPasswordModalForRestore = false
-                        viewModel.performRestore(driveFile = targetFile, password = restorePassword)
+                        viewModel.performRestore(
+                            driveFile = targetFile,
+                            password = restorePassword
+                        )
                     }
-                ) { Text("à¦°à¦¿à¦¸à§à¦Ÿà§‹à¦° à¦•à¦°à§à¦¨") }
+                ) {
+                    Text("ডিক্রিপ্ট ও রিস্টোর করুন")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showPasswordModalForRestore = false }) { Text("à¦¬à¦¾à¦¤à¦¿à¦²") }
+                TextButton(onClick = { showPasswordModalForRestore = false }) {
+                    Text("বাতিল")
+                }
             }
         )
     }
 
-    // â”€â”€ Delete Confirmation Dialog â”€â”€
+    // ══════════════════════════════════════════════════════════════
+    // Dialog 5: Delete confirmation
+    // ══════════════════════════════════════════════════════════════
     if (deleteConfirmBackup != null) {
         val delFile = deleteConfirmBackup!!
         AlertDialog(
             onDismissRequest = { deleteConfirmBackup = null },
-            title = { Text("à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦¡à¦¿à¦²à¦¿à¦Ÿ à¦•à¦°à¦¬à§‡à¦¨?") },
-            text = { Text("à¦—à§à¦—à¦² à¦¡à§à¦°à¦¾à¦‡à¦­ à¦¥à§‡à¦•à§‡ '${delFile.name}' à¦¸à§à¦¥à¦¾à¦¯à¦¼à§€à¦­à¦¾à¦¬à§‡ à¦¡à¦¿à¦²à¦¿à¦Ÿ à¦¹à¦¬à§‡à¥¤") },
+            title = { Text("ব্যাকআপ ফাইল ডিলিট করবেন?") },
+            text = {
+                Text("আপনি কি নিশ্চিত যে গুগল ড্রাইভ থেকে '${delFile.name}' ফাইলটি স্থায়ীভাবে ডিলিট করতে চান?")
+            },
             confirmButton = {
                 Button(
                     onClick = {
@@ -657,10 +894,14 @@ fun BackupRestoreScreen(
                         viewModel.deleteDriveBackup(file)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("à¦¡à¦¿à¦²à¦¿à¦Ÿ à¦•à¦°à§à¦¨") }
+                ) {
+                    Text("ডিলিট করুন")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { deleteConfirmBackup = null }) { Text("à¦¬à¦¾à¦¤à¦¿à¦²") }
+                TextButton(onClick = { deleteConfirmBackup = null }) {
+                    Text("বাতিল")
+                }
             }
         )
     }
@@ -696,41 +937,54 @@ private fun DriveBackupItemRow(
                 Icon(
                     imageVector = if (file.isPreRestoreBackup) Icons.Default.Security else Icons.Default.CloudDone,
                     contentDescription = null,
-                    tint = if (file.isPreRestoreBackup) MaterialTheme.colorScheme.onSecondaryContainer
-                           else MaterialTheme.colorScheme.onPrimaryContainer,
+                    tint = if (file.isPreRestoreBackup) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(18.dp)
                 )
             }
-            Spacer(Modifier.width(10.dp))
+
+            Spacer(modifier = Modifier.width(10.dp))
+
             Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (file.isPreRestoreBackup) "সুরক্ষা ব্যাকআপ (Pre-Restore)" else "সম্পূর্ণ ব্যাকআপ",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
                 Text(
-                    text = if (file.isPreRestoreBackup) "à¦¸à§à¦°à¦•à§à¦·à¦¾ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª" else "à¦•à§à¦²à¦¾à¦‰à¦¡ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Text(
-                    text = "${file.formattedDate} â€¢ ${file.formattedTime} (${file.formattedSize})",
+                    text = "${file.formattedDate} • ${file.formattedTime}  (${file.formattedSize})",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
+
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onRestoreClick, modifier = Modifier.size(36.dp)) {
+            IconButton(
+                onClick = onRestoreClick,
+                modifier = Modifier.size(32.dp)
+            ) {
                 Icon(
-                    Icons.Default.Restore,
+                    imageVector = Icons.Default.Restore,
                     contentDescription = "Restore",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            IconButton(onClick = onDeleteClick, modifier = Modifier.size(36.dp)) {
+
+            IconButton(
+                onClick = onDeleteClick,
+                modifier = Modifier.size(32.dp)
+            ) {
                 Icon(
-                    Icons.Default.DeleteOutline,
+                    imageVector = Icons.Default.DeleteOutline,
                     contentDescription = "Delete",
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
     }
 }
+

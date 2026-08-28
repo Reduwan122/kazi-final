@@ -57,7 +57,7 @@ class DriveBackupManager(private val context: Context) {
         .build()
 
     /**
-     * Obtains official GoogleSignInClient.
+     * Obtains official GoogleSignInClient with the narrow drive.file scope
      */
     fun getGoogleSignInClient(): GoogleSignInClient {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -71,7 +71,12 @@ class DriveBackupManager(private val context: Context) {
      * Checks if a Google account is currently signed in
      */
     fun getConnectedAccount(): GoogleSignInAccount? {
-        return GoogleSignIn.getLastSignedInAccount(context)
+        val account = GoogleSignIn.getLastSignedInAccount(context)
+        return if (account != null && GoogleSignIn.hasPermissions(account, Scope(DRIVE_SCOPE))) {
+            account
+        } else {
+            null
+        }
     }
 
     fun isConnected(): Boolean = getConnectedAccount() != null
@@ -142,26 +147,26 @@ class DriveBackupManager(private val context: Context) {
         if (response.isSuccessful) {
             val body = response.body?.string() ?: ""
             val json = JSONObject(body)
-            val filesArray: JSONArray = json.optJSONArray("files") ?: JSONArray()
-            if (filesArray.length() > 0) {
-                val existingFolderId = filesArray.getJSONObject(0).getString("id")
-                prefs.edit().putString(PREF_KEY_DRIVE_FOLDER_ID, existingFolderId).apply()
-                return@withContext existingFolderId
+            val files = json.optJSONArray("files")
+            if (files != null && files.length() > 0) {
+                val existingId = files.getJSONObject(0).getString("id")
+                prefs.edit().putString(PREF_KEY_DRIVE_FOLDER_ID, existingId).apply()
+                return@withContext existingId
             }
         }
 
-        // Create the folder if not found
+        // Create new folder
         val createUrl = "https://www.googleapis.com/drive/v3/files"
-        val metadata = JSONObject().apply {
+        val folderJson = JSONObject().apply {
             put("name", FOLDER_NAME)
             put("mimeType", "application/vnd.google-apps.folder")
-            put("description", "Dedicated backup directory for Kazi Agrotech Farm Management System")
         }
 
         val createRequest = Request.Builder()
             .url(createUrl)
             .addHeader("Authorization", "Bearer $accessToken")
-            .post(metadata.toString().toRequestBody("application/json; charset=UTF-8".toMediaType()))
+            .addHeader("Content-Type", "application/json; charset=UTF-8")
+            .post(folderJson.toString().toRequestBody("application/json; charset=UTF-8".toMediaType()))
             .build()
 
         val createResponse = httpClient.newCall(createRequest).execute()
@@ -269,7 +274,7 @@ class DriveBackupManager(private val context: Context) {
     }
 
     /**
-     * Uploads the backup JSON payload to Google Drive using multipart upload
+     * Uploads the backup JSON string to Google Drive
      */
     suspend fun uploadBackupToDrive(
         backupJsonString: String,
@@ -279,35 +284,35 @@ class DriveBackupManager(private val context: Context) {
         try {
             val folderId = getOrCreateBackupFolderId(accessToken)
 
-            val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+            val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
             val timestampStr = sdf.format(Date())
             val filename = if (isPreRestore) {
-                "Kazi_Agrotech_Backup_PreRestore_${timestampStr}.kazi"
+                "Kazi_Agrotech_PreRestore_$timestampStr.json"
             } else {
-                "Kazi_Agrotech_Backup_${timestampStr}.kazi"
+                "Kazi_Agrotech_Backup_$timestampStr.json"
             }
 
-            val metadata = JSONObject().apply {
+            val metadataJson = JSONObject().apply {
                 put("name", filename)
-                put("parents", JSONArray().put(folderId))
-                put("description", if (isPreRestore) "Pre-restore safety backup" else "Full Kazi Agrotech backup")
+                put("parents", JSONArray().apply { put(folderId) })
+                put("mimeType", "application/json")
             }
-
-            val uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,createdTime"
 
             val multipartBody = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
                     "metadata",
-                    null,
-                    metadata.toString().toRequestBody("application/json; charset=UTF-8".toMediaType())
+                    "metadata",
+                    metadataJson.toString().toRequestBody("application/json; charset=UTF-8".toMediaType())
                 )
                 .addFormDataPart(
                     "file",
                     filename,
-                    backupJsonString.toRequestBody("application/octet-stream".toMediaType())
+                    backupJsonString.toRequestBody("application/json; charset=UTF-8".toMediaType())
                 )
                 .build()
+
+            val uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,createdTime,modifiedTime"
 
             val request = Request.Builder()
                 .url(uploadUrl)
@@ -317,46 +322,47 @@ class DriveBackupManager(private val context: Context) {
 
             val response = httpClient.newCall(request).execute()
             if (!response.isSuccessful) {
-                val errBody = response.body?.string() ?: ""
-                return@withContext Result.failure(Exception("ড্রাইভ ব্যাকআপ আপলোড ব্যর্থ: ${response.code} $errBody"))
+                return@withContext Result.failure(Exception("ড্রাইভে আপলোড ব্যর্থ হয়েছে (${response.code})"))
             }
 
-            val resBody = response.body?.string() ?: ""
-            val jsonRes = JSONObject(resBody)
-            val fileId = jsonRes.getString("id")
-            val size = jsonRes.optLong("size", backupJsonString.toByteArray().size.toLong())
-            val nowMillis = System.currentTimeMillis()
+            val responseBody = response.body?.string() ?: ""
+            val fileJson = JSONObject(responseBody)
+            val fileId = fileJson.getString("id")
+            val name = fileJson.getString("name")
+            val size = fileJson.optLong("size", backupJsonString.toByteArray(Charsets.UTF_8).size.toLong())
+            val nowTime = System.currentTimeMillis()
 
             if (!isPreRestore) {
-                saveLastBackupMetadata(nowMillis, filename)
+                saveLastBackupMetadata(nowTime, name)
             }
 
-            val driveFileInfo = DriveFileInfo(
+            val info = DriveFileInfo(
                 id = fileId,
-                name = filename,
+                name = name,
                 sizeBytes = size,
-                createdTime = nowMillis,
-                formattedDate = formatDateFromMillis(nowMillis),
-                formattedTime = formatTimeFromMillis(nowMillis),
+                createdTime = nowTime,
+                formattedDate = formatDateFromMillis(nowTime),
+                formattedTime = formatTimeFromMillis(nowTime),
                 formattedSize = formatBytesToHumanReadable(size),
                 isPreRestoreBackup = isPreRestore
             )
-
-            Result.success(driveFileInfo)
+            Result.success(info)
         } catch (e: Exception) {
-            Log.e(TAG, "Error uploading backup: ${e.message}", e)
+            Log.e(TAG, "Error during drive upload: ${e.message}", e)
             Result.failure(e)
         }
     }
 
+    // ── List, Download, Delete ──
+
     /**
-     * Lists all Kazi Agrotech backup files stored in Google Drive
+     * Lists all backup files in the Kazi Agrotech Backups folder
      */
     suspend fun listBackupsFromDrive(accessToken: String): Result<List<DriveFileInfo>> = withContext(Dispatchers.IO) {
         try {
             val folderId = getOrCreateBackupFolderId(accessToken)
             val query = "'$folderId' in parents and trashed = false"
-            val url = "https://www.googleapis.com/drive/v3/files?q=${java.net.URLEncoder.encode(query, "UTF-8")}&spaces=drive&fields=files(id,name,size,createdTime)&orderBy=createdTime%20desc"
+            val url = "https://www.googleapis.com/drive/v3/files?q=${java.net.URLEncoder.encode(query, "UTF-8")}&fields=files(id,name,size,createdTime,modifiedTime)&orderBy=createdTime+desc&pageSize=50"
 
             val request = Request.Builder()
                 .url(url)
@@ -366,13 +372,13 @@ class DriveBackupManager(private val context: Context) {
 
             val response = httpClient.newCall(request).execute()
             if (!response.isSuccessful) {
-                return@withContext Result.failure(Exception("ব্যাকআপ তালিকা প্রাপ্তি ব্যর্থ: ${response.code}"))
+                return@withContext Result.failure(Exception("ব্যাকআপ তালিকা লোড ব্যর্থ: ${response.code}"))
             }
 
+            val list = mutableListOf<DriveFileInfo>()
             val body = response.body?.string() ?: ""
             val json = JSONObject(body)
             val files = json.optJSONArray("files") ?: JSONArray()
-            val list = mutableListOf<DriveFileInfo>()
 
             val sdfIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
 
@@ -558,3 +564,4 @@ class DriveBackupManager(private val context: Context) {
         return BanglaNumberFormatter.toBanglaDigits(sdf.format(Date(millis)))
     }
 }
+
